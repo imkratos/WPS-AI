@@ -103,7 +103,7 @@ function streamChat(messages, onChunk, onDone, onError, options = {}) {
       let fullText = ''
       let buffer = ''
 
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read()
         if (done) break
 
@@ -155,12 +155,74 @@ async function queryKnowledgeBase(question, kbUrlOverride) {
   const kbUrl = kbUrlOverride || cfg.kbUrl
   if (!kbUrl) return ''
 
+  if (cfg.kbProvider === 'dify') {
+    return queryDifyKnowledgeBase(question, {
+      kbUrl,
+      kbApiKey: cfg.kbApiKey,
+      kbDatasetId: cfg.kbDatasetId,
+      kbTopK: cfg.kbTopK
+    })
+  }
+
+  return queryCustomKnowledgeBase(question, kbUrl, cfg.kbTopK)
+}
+
+/**
+ * 调用 Dify 知识库检索接口
+ * @param {string} question 用户问题
+ * @param {object} config Dify 知识库配置
+ * @returns {Promise<string>}
+ */
+async function queryDifyKnowledgeBase(question, config) {
+  const { kbUrl, kbApiKey, kbDatasetId } = config
+  if (!kbUrl || !kbApiKey || !kbDatasetId) return ''
+
+  const topK = normalizeTopK(config.kbTopK)
+
+  try {
+    const endpoint = `${kbUrl.replace(/\/$/, '')}/datasets/${encodeURIComponent(kbDatasetId)}/retrieve`
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: buildHeaders(kbApiKey),
+      body: JSON.stringify({
+        query: question,
+        retrieval_model: {
+          search_method: 'semantic_search',
+          reranking_enable: false,
+          top_k: topK,
+          score_threshold_enabled: false
+        }
+      })
+    })
+    if (!resp.ok) return ''
+    const data = await resp.json()
+    if (!Array.isArray(data.records)) return ''
+    return data.records
+      .map((record) => {
+        const segment = record.segment || {}
+        return segment.content || record.content || ''
+      })
+      .filter(Boolean)
+      .join('\n\n')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 调用项目原有的自定义 RAG 服务
+ * @param {string} question 用户问题
+ * @param {string} kbUrl 知识库服务地址
+ * @param {number} kbTopK 检索片段数量
+ * @returns {Promise<string>}
+ */
+async function queryCustomKnowledgeBase(question, kbUrl, kbTopK) {
   try {
     const endpoint = kbUrl.replace(/\/$/, '') + '/query'
     const resp = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, top_k: 5 })
+      body: JSON.stringify({ question, top_k: normalizeTopK(kbTopK) })
     })
     if (!resp.ok) return ''
     const data = await resp.json()
@@ -173,6 +235,17 @@ async function queryKnowledgeBase(question, kbUrlOverride) {
   } catch {
     return ''
   }
+}
+
+/**
+ * 规范化知识库检索数量，避免配置异常导致接口请求失败
+ * @param {number|string} value
+ * @returns {number}
+ */
+function normalizeTopK(value) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 5
+  return Math.min(Math.max(Math.round(parsed), 1), 20)
 }
 
 /**

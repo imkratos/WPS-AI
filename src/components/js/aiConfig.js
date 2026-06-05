@@ -5,10 +5,14 @@ const CONFIG_KEY = 'wps_ai_config'
 
 // 默认配置
 const DEFAULT_CONFIG = {
-  apiUrl: '',    // 大模型接口 baseURL，如 https://api.openai.com
-  apiKey: '',    // API Key
-  model: '',     // 模型名称，如 gpt-4o / deepseek-chat
-  kbUrl: ''      // 知识库服务地址（RAG 接口）
+  apiUrl: '',                 // 大模型接口 baseURL，如 https://api.openai.com
+  apiKey: '',                 // API Key
+  model: '',                  // 模型名称，如 gpt-4o / deepseek-chat
+  kbProvider: 'dify',         // 知识库类型：dify / custom
+  kbUrl: 'https://api.dify.ai/v1', // 知识库服务地址
+  kbApiKey: '',               // Dify 知识库 API Key
+  kbDatasetId: '',            // Dify 知识库 ID
+  kbTopK: 5                   // 检索片段数量
 }
 
 /**
@@ -19,7 +23,12 @@ function getConfig() {
   try {
     const raw = localStorage.getItem(CONFIG_KEY)
     if (!raw) return { ...DEFAULT_CONFIG }
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) }
+    const saved = JSON.parse(raw)
+    const config = { ...DEFAULT_CONFIG, ...saved }
+    if (!saved.kbProvider && saved.kbUrl) {
+      config.kbProvider = 'custom'
+    }
+    return config
   } catch {
     return { ...DEFAULT_CONFIG }
   }

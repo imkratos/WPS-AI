@@ -61,13 +61,59 @@
       </div>
 
       <label class="field">
-        <span>知识库服务地址</span>
+        <span>知识库类型</span>
+        <select v-model="form.kbProvider">
+          <option value="dify">Dify 知识库</option>
+          <option value="custom">自定义 RAG 服务</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>{{ form.kbProvider === 'dify' ? 'Dify API 地址' : '知识库服务地址' }}</span>
         <input
           v-model.trim="form.kbUrl"
           type="url"
-          placeholder="http://localhost:8000"
+          :placeholder="form.kbProvider === 'dify' ? 'https://api.dify.ai/v1' : 'http://localhost:8000'"
         />
-        <small>留空则不使用知识库。配置后文档问答会请求 `POST /query`，请求体包含 `question` 和 `top_k`。</small>
+        <small v-if="form.kbProvider === 'dify'">
+          默认使用 Dify 云端地址。配置后文档问答会请求 `POST /datasets/{dataset_id}/retrieve`。
+        </small>
+        <small v-else>留空则不使用知识库。配置后文档问答会请求 `POST /query`，请求体包含 `question` 和 `top_k`。</small>
+      </label>
+
+      <template v-if="form.kbProvider === 'dify'">
+        <label class="field">
+          <span>Dify 知识库 ID</span>
+          <input
+            v-model.trim="form.kbDatasetId"
+            type="text"
+            placeholder="dataset_id"
+          />
+        </label>
+
+        <label class="field key-field">
+          <span>Dify API Key</span>
+          <div class="key-row">
+            <input
+              v-model.trim="form.kbApiKey"
+              :type="showKbKey ? 'text' : 'password'"
+              placeholder="app-..."
+            />
+            <button class="ghost-button" @click="showKbKey = !showKbKey">{{ showKbKey ? '隐藏' : '显示' }}</button>
+          </div>
+          <small>三项任一为空时不会启用知识库检索，不影响大模型基础能力。</small>
+        </label>
+      </template>
+
+      <label class="field">
+        <span>检索片段数</span>
+        <input
+          v-model.number="form.kbTopK"
+          type="number"
+          min="1"
+          max="20"
+          step="1"
+        />
       </label>
     </section>
 
@@ -93,9 +139,14 @@ export default {
         apiUrl: '',
         apiKey: '',
         model: '',
-        kbUrl: ''
+        kbProvider: 'dify',
+        kbUrl: 'https://api.dify.ai/v1',
+        kbApiKey: '',
+        kbDatasetId: '',
+        kbTopK: 5
       },
       showKey: false,
+      showKbKey: false,
       testing: false,
       testResult: null,
       savedTip: false,

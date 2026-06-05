@@ -54,6 +54,17 @@ const AI_SELECTION_ACTION_IDS = new Set([
   'btnAiSelectionParty'
 ])
 
+const TASKPANE_STORAGE_KEYS = [
+  'taskpane_id',
+  'ai_taskpane_id',
+  'ai_edit_taskpane_id',
+  'ai_history_pane_id',
+  // 兼容旧版本按功能分别创建的 AI 任务窗格，避免历史 ID 导致多窗格并存。
+  'ai_taskpane_id_write',
+  'ai_taskpane_id_companion',
+  'ai_taskpane_id_qa'
+]
+
 function OnAction(control) {
   const eleId = AI_QUICK_ACTION_MAP[control.Id] || control.Id
   switch (eleId) {
@@ -86,6 +97,7 @@ function OnAction(control) {
       break
     }
     case 'btnShowTaskPane': {
+      closeOtherTaskPanes('taskpane_id')
       let tsId = window.Application.PluginStorage.getItem('taskpane_id')
       if (!tsId) {
         let tskpane = window.Application.CreateTaskPane(
@@ -222,8 +234,9 @@ function OnAction(control) {
  * @param {string} mode - 'write' | 'companion' | 'qa'
  */
 function openAiTaskPane(mode) {
-  const storageKey = 'ai_taskpane_id_' + mode
+  const storageKey = 'ai_taskpane_id'
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-pane?mode=' + mode
+  closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
   if (!tsId) {
     let tskpane = window.Application.CreateTaskPane(url)
@@ -232,9 +245,8 @@ function openAiTaskPane(mode) {
   } else {
     try {
       let tskpane = window.Application.GetTaskPane(tsId)
-      if (!tskpane.Visible) {
-        tskpane.Visible = true
-      }
+      tskpane.Navigate(url)
+      tskpane.Visible = true
     } catch {
       // 任务窗格已失效，重新创建
       let tskpane = window.Application.CreateTaskPane(url)
@@ -277,6 +289,7 @@ function openAiDialogTaskPane(mode) {
     mode +
     '&paneKey=' +
     storageKey
+  closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
   if (!tsId) {
     let tskpane = window.Application.CreateTaskPane(url, title)
@@ -331,6 +344,7 @@ function openAiSettings() {
 function openAiHistory() {
   const storageKey = 'ai_history_pane_id'
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-history'
+  closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
   if (!tsId) {
     let tskpane = window.Application.CreateTaskPane(url)
@@ -345,6 +359,25 @@ function openAiHistory() {
       window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
       tskpane.Visible = true
     }
+  }
+}
+
+function closeOtherTaskPanes(activeStorageKey) {
+  TASKPANE_STORAGE_KEYS.forEach((storageKey) => {
+    if (storageKey === activeStorageKey) return
+    closeTaskPaneByStorageKey(storageKey)
+  })
+}
+
+function closeTaskPaneByStorageKey(storageKey) {
+  const tsId = window.Application.PluginStorage.getItem(storageKey)
+  if (!tsId) return
+
+  try {
+    const tskpane = window.Application.GetTaskPane(tsId)
+    tskpane.Visible = false
+  } catch {
+    // 宿主中任务窗格已失效时忽略，后续打开会重新创建。
   }
 }
 

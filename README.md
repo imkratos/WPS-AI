@@ -22,7 +22,7 @@
 - AI 生成图片：调用兼容 OpenAI 图片生成接口生成图片，并尝试插入文档。
 - AI 总结生图：先基于文档总结生成图片提示词，再调用图片生成接口。
 - 历史会话：查看本地保存的写作、问答、改写、排版和图片生成记录。
-- 设置：配置大模型接口地址、API Key、模型名称和可选知识库地址。
+- 设置：配置大模型接口地址、API Key、模型名称，以及 Dify 或自定义 RAG 知识库。
 
 ### 2. 右键菜单快捷处理
 
@@ -50,7 +50,71 @@
 
 因此可以接入 OpenAI、DeepSeek、通义千问、智谱、Moonshot，或企业内部兼容 OpenAI 协议的大模型服务。
 
-### 4. WPS 文档读写能力
+### 4. 知识库接入
+
+文档问答支持叠加外部知识库检索结果，设置页默认提供 Dify 知识库配置，同时保留原有自定义 RAG 服务模式。
+
+#### Dify 知识库
+
+默认知识库类型为“Dify 知识库”，需要配置：
+
+| 配置项 | 说明 |
+| --- | --- |
+| Dify API 地址 | 默认 `https://api.dify.ai/v1`；私有化部署时填写自己的 Dify API 根地址。 |
+| Dify 知识库 ID | Dify 知识库的 `dataset_id`。 |
+| Dify API Key | 用于调用 Dify Knowledge Base API 的 Key。 |
+| 检索片段数 | 对应检索接口的 `top_k`，当前限制为 1-20，默认 5。 |
+
+启用后，文档问答会调用 Dify 官方知识库检索接口：
+
+```text
+POST /datasets/{dataset_id}/retrieve
+Authorization: Bearer <Dify API Key>
+Content-Type: application/json
+```
+
+请求体核心字段：
+
+```json
+{
+  "query": "用户问题",
+  "retrieval_model": {
+    "search_method": "semantic_search",
+    "reranking_enable": false,
+    "top_k": 5,
+    "score_threshold_enabled": false
+  }
+}
+```
+
+返回结果会读取 `records[].segment.content`，拼接为“知识库参考”上下文，再交给大模型生成最终回答。
+
+注意：当前加载项是前端应用，Dify API Key 会保存在浏览器或 WPS WebView 的 `localStorage` 中。个人本地使用问题不大；如果用于团队或生产环境，建议增加后端代理，由服务端保存 Key 并转发检索请求。
+
+#### 自定义 RAG 服务
+
+如果选择“自定义 RAG 服务”，需要填写知识库服务地址。文档问答会请求：
+
+```text
+POST /query
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "question": "用户问题",
+  "top_k": 5
+}
+```
+
+当前兼容以下返回格式：
+
+- `{ "context": "..." }`
+- `{ "results": [{ "content": "..." }, { "text": "..." }] }`
+
+### 5. WPS 文档读写能力
 
 `src/components/js/wpsDoc.js` 对 WPS JSAPI 做了统一封装，当前支持：
 
