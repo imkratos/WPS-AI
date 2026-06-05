@@ -16,8 +16,6 @@
                         <button id="btnAiParty"     label="党政风" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                         <button id="btnAiPolish"    label="润色"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                         <button id="btnAiFormal"    label="更正式" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
-                        <menuSeparator id="sep2"/>
-                        <button id="btnAiFullPolish" label="全文润色" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     </menu>
                     <button id="btnAiContinueQuick"  label="续写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     <button id="btnAiExpandQuick"    label="扩写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
@@ -26,7 +24,7 @@
                     <button id="btnAiPolishQuick"    label="润色"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     <button id="btnAiFormalQuick"    label="更正式" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     <button id="btnAiPartyQuick"     label="党政风" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
-                    <button id="btnAiFullPolishQuick" label="全文润色" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiProofreadQuick" label="AI 纠错" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     <button id="btnAiCompanion" label="伴写" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
                 </group>
 

@@ -34,7 +34,6 @@ const AI_QUICK_ACTION_MAP = {
   btnAiFormalQuick: 'btnAiFormal',
   btnAiPartyQuick: 'btnAiParty',
   btnAiProofreadQuick: 'btnAiProofread',
-  btnAiFullPolishQuick: 'btnAiFullPolish',
   btnAiPaperLayoutQuick: 'btnAiPaperLayout',
   btnAiOfficialLayoutQuick: 'btnAiOfficialLayout',
   btnAiSelectionContinue: 'btnAiContinue',
@@ -176,9 +175,6 @@ function OnAction(control) {
     case 'btnAiProofread':
       openAiDialogTaskPane('proofread')
       break
-    case 'btnAiFullPolish':
-      openAiDialogTaskPane('full-polish')
-      break
 
     // 伴写：打开 AI 任务窗格（companion tab）
     case 'btnAiCompanion':
@@ -274,7 +270,7 @@ function openAiTaskPane(mode) {
  */
 function openAiDialog(mode) {
   // 根据不同功能设置合适的窗口大小
-  const largeDialogs = ['summary', 'full-polish', 'proofread', 'layout', 'paper-layout', 'official-layout', 'ppt', 'image', 'summary-image']
+  const largeDialogs = ['summary', 'proofread', 'layout', 'paper-layout', 'official-layout', 'ppt', 'image', 'summary-image']
   const width = largeDialogs.includes(mode) ? 680 : 600
   const height = largeDialogs.includes(mode) ? 560 : 500
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-dialog?mode=' + mode
@@ -338,7 +334,7 @@ function openAiDialogTaskPane(mode) {
 }
 
 function setAiTaskPaneWidth(tskpane, mode) {
-  const largeModes = ['full-polish', 'proofread']
+  const largeModes = ['proofread']
   const width = largeModes.includes(mode) ? 500 : 420
   try {
     tskpane.MinWidth = 360
@@ -441,7 +437,6 @@ function getDialogTitle(mode) {
     polish: '润色',
     formal: '更正式',
     proofread: 'AI 纠错',
-    'full-polish': '全文润色',
     summary: '全文总结',
     layout: 'AI 排版',
     'paper-layout': '论文排版',
@@ -477,7 +472,6 @@ function GetImage(control) {
     case 'btnAiPolish':
     case 'btnAiFormal':
     case 'btnAiProofread':
-    case 'btnAiFullPolish':
       return 'images/ai-edit.svg'
     case 'btnAiCompanion':
       return 'images/ai-companion.svg'

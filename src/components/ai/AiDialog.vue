@@ -258,20 +258,6 @@ ${src}`
     buildPrompt: (src, extra) =>
       `请将以下文本改写得更正式、专业。\n\n原文：\n${src}\n\n补充要求：${extra || '适合正式文档，直接输出处理后的文本。'}`
   },
-  'full-polish': {
-    title: '全文润色',
-    category: '全文',
-    kind: 'text',
-    source: 'document',
-    promptLabel: '全文润色要求',
-    placeholder: '例如：增强逻辑连贯性，保留原有结构',
-    actionLabel: '开始润色',
-    resultLabel: '全文润色版本',
-    applyLabel: '追加润色版本',
-    applyMode: 'insertEnd',
-    buildPrompt: (src, extra) =>
-      `请润色以下文档全文，保持原有信息和结构。\n\n文档：\n${src}\n\n补充要求：${extra || '提升表达质量，直接输出润色后的全文。'}`
-  },
   summary: {
     title: '全文总结',
     category: '全文',
