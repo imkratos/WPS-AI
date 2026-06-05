@@ -23,6 +23,7 @@ function OnAddinLoad(ribbonUI) {
 }
 
 var WebNotifycount = 0
+const PRODUCT_NAME = '文策 AI'
 
 const AI_QUICK_ACTION_MAP = {
   btnAiContinueQuick: 'btnAiContinue',
@@ -101,15 +102,18 @@ function OnAction(control) {
     }
     case 'btnShowTaskPane': {
       closeOtherTaskPanes('taskpane_id')
+      const title = getTaskPaneTitle('任务窗格')
       let tsId = window.Application.PluginStorage.getItem('taskpane_id')
       if (!tsId) {
         let tskpane = window.Application.CreateTaskPane(
-          Util.GetUrlPath() + Util.GetRouterHash() + '/taskpane'
+          Util.GetUrlPath() + Util.GetRouterHash() + '/taskpane',
+          title
         )
         window.Application.PluginStorage.setItem('taskpane_id', tskpane.ID)
         tskpane.Visible = true
       } else {
         let tskpane = window.Application.GetTaskPane(tsId)
+        setTaskPaneTitle(tskpane, title)
         tskpane.Visible = !tskpane.Visible
       }
       break
@@ -242,20 +246,22 @@ function OnAction(control) {
 function openAiTaskPane(mode) {
   const storageKey = 'ai_taskpane_id'
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-pane?mode=' + mode
+  const title = getTaskPaneTitle(getAiTaskPaneModeTitle(mode))
   closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
   if (!tsId) {
-    let tskpane = window.Application.CreateTaskPane(url)
+    let tskpane = window.Application.CreateTaskPane(url, title)
     window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
     tskpane.Visible = true
   } else {
     try {
       let tskpane = window.Application.GetTaskPane(tsId)
       tskpane.Navigate(url)
+      setTaskPaneTitle(tskpane, title)
       tskpane.Visible = true
     } catch {
       // 任务窗格已失效，重新创建
-      let tskpane = window.Application.CreateTaskPane(url)
+      let tskpane = window.Application.CreateTaskPane(url, title)
       window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
       tskpane.Visible = true
     }
@@ -287,7 +293,8 @@ function openAiDialog(mode) {
  */
 function openAiDialogTaskPane(mode) {
   const storageKey = 'ai_edit_taskpane_id'
-  const title = getDialogTitle(mode)
+  const titleStorageKey = `${storageKey}_title`
+  const title = getTaskPaneTitle(getDialogTitle(mode))
   const url =
     Util.GetUrlPath() +
     Util.GetRouterHash() +
@@ -297,9 +304,17 @@ function openAiDialogTaskPane(mode) {
     storageKey
   closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
+  const lastTitle = window.Application.PluginStorage.getItem(titleStorageKey)
+
+  if (tsId && lastTitle !== title) {
+    closeTaskPaneByStorageKey(storageKey)
+    tsId = ''
+  }
+
   if (!tsId) {
     let tskpane = window.Application.CreateTaskPane(url, title)
     window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
+    window.Application.PluginStorage.setItem(titleStorageKey, title)
     setAiTaskPaneWidth(tskpane, mode)
     tskpane.Visible = true
     return
@@ -308,12 +323,15 @@ function openAiDialogTaskPane(mode) {
   try {
     let tskpane = window.Application.GetTaskPane(tsId)
     tskpane.Navigate(url)
+    setTaskPaneTitle(tskpane, title)
+    window.Application.PluginStorage.setItem(titleStorageKey, title)
     setAiTaskPaneWidth(tskpane, mode)
     tskpane.Visible = true
   } catch {
     // 任务窗格已失效，重新创建
     let tskpane = window.Application.CreateTaskPane(url, title)
     window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
+    window.Application.PluginStorage.setItem(titleStorageKey, title)
     setAiTaskPaneWidth(tskpane, mode)
     tskpane.Visible = true
   }
@@ -350,18 +368,20 @@ function openAiSettings() {
 function openAiHistory() {
   const storageKey = 'ai_history_pane_id'
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-history'
+  const title = getTaskPaneTitle('历史会话')
   closeOtherTaskPanes(storageKey)
   let tsId = window.Application.PluginStorage.getItem(storageKey)
   if (!tsId) {
-    let tskpane = window.Application.CreateTaskPane(url)
+    let tskpane = window.Application.CreateTaskPane(url, title)
     window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
     tskpane.Visible = true
   } else {
     try {
       let tskpane = window.Application.GetTaskPane(tsId)
+      setTaskPaneTitle(tskpane, title)
       tskpane.Visible = !tskpane.Visible
     } catch {
-      let tskpane = window.Application.CreateTaskPane(url)
+      let tskpane = window.Application.CreateTaskPane(url, title)
       window.Application.PluginStorage.setItem(storageKey, tskpane.ID)
       tskpane.Visible = true
     }
@@ -385,6 +405,27 @@ function closeTaskPaneByStorageKey(storageKey) {
   } catch {
     // 宿主中任务窗格已失效时忽略，后续打开会重新创建。
   }
+}
+
+function getTaskPaneTitle(featureName) {
+  return `${PRODUCT_NAME} | ${featureName}`
+}
+
+function setTaskPaneTitle(tskpane, title) {
+  try {
+    tskpane.Title = title
+  } catch {
+    // 部分 WPS 版本只支持创建时传入标题，复用时无法动态修改。
+  }
+}
+
+function getAiTaskPaneModeTitle(mode) {
+  const titles = {
+    write: '帮我写',
+    companion: '伴写',
+    qa: '文档问答'
+  }
+  return titles[mode] || 'AI 任务窗格'
 }
 
 /**

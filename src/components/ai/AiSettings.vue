@@ -117,6 +117,19 @@
       </label>
     </section>
 
+    <section class="settings-card">
+      <div class="section-head">
+        <h2>关于文策 AI</h2>
+      </div>
+
+      <div class="about-row">
+        <span>官方网站</span>
+        <a href="https://doc.itupo.com/" target="_blank" rel="noopener noreferrer">
+          https://doc.itupo.com/
+        </a>
+      </div>
+    </section>
+
     <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
     <p v-if="savedTip" class="tip-msg">设置已保存。</p>
 
@@ -324,6 +337,32 @@ h2 {
   margin-top: 4px;
   color: #64748b;
   line-height: 1.35;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.about-row span {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.about-row a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #4f46e5;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.about-row a:hover {
+  text-decoration: underline;
 }
 
 input,

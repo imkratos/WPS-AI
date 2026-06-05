@@ -1,12 +1,5 @@
 <template>
   <main class="ai-dialog">
-    <header class="dialog-head">
-      <div>
-        <p class="eyebrow">文策 AI</p>
-        <h1>{{ modeInfo.title }}</h1>
-      </div>
-      <span class="status-pill">{{ modeInfo.category }}</span>
-    </header>
 
     <section v-if="modeInfo.source !== 'none'" class="source-card">
       <div class="source-title">
@@ -407,6 +400,9 @@ export default {
     }
   },
   computed: {
+    isTaskPane() {
+      return Boolean(this.paneKey)
+    },
     modeInfo() {
       return MODE_CONFIG[this.mode] || MODE_CONFIG.rewrite
     },

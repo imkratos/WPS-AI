@@ -1,10 +1,6 @@
 <template>
   <main class="history-pane">
     <header class="history-head">
-      <div>
-        <p class="eyebrow">文策 AI</p>
-        <h1>历史会话</h1>
-      </div>
       <button class="ghost-button" :disabled="sessions.length === 0" @click="onClearAll">清空</button>
     </header>
 
@@ -136,14 +132,6 @@ export default {
   color: #6366f1;
   font-size: 10px;
   font-weight: 700;
-}
-
-h1 {
-  margin: 0;
-  color: #111827;
-  font-size: 16px;
-  font-weight: 750;
-  line-height: 1.15;
 }
 
 button {

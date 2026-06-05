@@ -1,13 +1,5 @@
 <template>
   <main class="ai-pane">
-    <header class="pane-head">
-      <div>
-        <p class="eyebrow">文策 AI</p>
-        <h1>{{ currentTab.label }}</h1>
-      </div>
-      <button class="icon-button" title="新会话" @click="newActiveChat">+</button>
-    </header>
-
     <nav class="tab-bar">
       <button
         v-for="tab in tabs"
@@ -127,15 +119,22 @@ import aiConfig from '../js/aiConfig.js'
 import aiHistory from '../js/aiHistory.js'
 import wpsDoc from '../js/wpsDoc.js'
 
+const PRODUCT_NAME = '文策 AI'
+const AI_TASK_PANE_TITLES = {
+  write: '帮我写',
+  companion: '伴写',
+  qa: '文档问答'
+}
+
 export default {
   name: 'AiTaskPane',
   data() {
     return {
       activeTab: 'write',
       tabs: [
-        { key: 'write', label: '帮我写' },
-        { key: 'companion', label: '伴写' },
-        { key: 'qa', label: '文档问答' }
+        { key: 'write', label: AI_TASK_PANE_TITLES.write },
+        { key: 'companion', label: AI_TASK_PANE_TITLES.companion },
+        { key: 'qa', label: AI_TASK_PANE_TITLES.qa }
       ],
       writePrompt: '',
       writeStyle: '',
@@ -165,9 +164,6 @@ export default {
     }
   },
   computed: {
-    currentTab() {
-      return this.tabs.find((tab) => tab.key === this.activeTab) || this.tabs[0]
-    },
     activeMessages() {
       return this.activeTab === 'qa' ? this.qaMessages : this.companionMessages
     },
@@ -204,12 +200,37 @@ export default {
   },
   methods: {
     applyRouteMode(mode) {
-      if (['write', 'companion', 'qa'].includes(mode)) {
-        this.activeTab = mode
-      }
+      const nextTab = AI_TASK_PANE_TITLES[mode] ? mode : this.activeTab
+      this.activeTab = nextTab
+      this.updateTaskPaneTitle(nextTab)
     },
     switchTab(key) {
+      if (!AI_TASK_PANE_TITLES[key]) return
       this.activeTab = key
+      this.updateTaskPaneTitle(key)
+      this.$router
+        .replace({
+          path: this.$route.path,
+          query: {
+            ...this.$route.query,
+            mode: key
+          }
+        })
+        .catch(() => {})
+    },
+    updateTaskPaneTitle(mode = this.activeTab) {
+      const featureName = AI_TASK_PANE_TITLES[mode] || 'AI 任务窗格'
+      const title = `${PRODUCT_NAME}|${featureName}`
+      document.title = title
+      if (!window.Application?.PluginStorage) return
+      try {
+        const paneId = window.Application.PluginStorage.getItem('ai_taskpane_id')
+        if (paneId) {
+          window.Application.GetTaskPane(paneId).Title = title
+        }
+      } catch {
+        // 部分 WPS 版本只支持创建任务窗格时传入标题。
+      }
     },
     checkConfig() {
       if (!aiConfig.isConfigured()) {
@@ -482,14 +503,6 @@ export default {
   color: #6366f1;
   font-size: 10px;
   font-weight: 700;
-}
-
-h1 {
-  margin: 0;
-  color: #111827;
-  font-size: 16px;
-  font-weight: 750;
-  line-height: 1.15;
 }
 
 .icon-button {

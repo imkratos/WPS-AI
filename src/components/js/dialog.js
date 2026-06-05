@@ -10,14 +10,23 @@ function onbuttonclick(idStr, param) {
       return doc.Name
     }
     case 'createTaskPane': {
+      const title = '文策 AI|任务窗格'
       let tsId = window.Application.PluginStorage.getItem('taskpane_id')
       if (!tsId) {
-        let tskpane = window.Application.CreateTaskPane(Util.GetUrlPath() + '/taskpane')
+        let tskpane = window.Application.CreateTaskPane(
+          Util.GetUrlPath() + Util.GetRouterHash() + '/taskpane',
+          title
+        )
         let id = tskpane.ID
         window.Application.PluginStorage.setItem('taskpane_id', id)
         tskpane.Visible = true
       } else {
         let tskpane = window.Application.GetTaskPane(tsId)
+        try {
+          tskpane.Title = title
+        } catch {
+          // 部分 WPS 版本只支持创建时传入标题。
+        }
         tskpane.Visible = true
       }
       break
