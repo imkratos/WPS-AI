@@ -27,6 +27,7 @@
                         <button id="btnAiParty"     label="党政风" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                         <button id="btnAiPolish"    label="润色"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                         <button id="btnAiFormal"    label="更正式" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiProofread" label="AI 纠错" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                         <menuSeparator id="sep2"/>
                         <button id="btnAiFullPolish" label="全文润色" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
                     </menu>
@@ -78,6 +79,7 @@
                 <menuSeparator id="sepAiSelectionStyle"/>
                 <button id="btnAiSelectionFormal" label="更正式" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
                 <button id="btnAiSelectionParty" label="党政风" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionProofread" label="AI 纠错" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
             </menu>
         </contextMenu>
     </contextMenus>

@@ -32,6 +32,7 @@ const AI_QUICK_ACTION_MAP = {
   btnAiPolishQuick: 'btnAiPolish',
   btnAiFormalQuick: 'btnAiFormal',
   btnAiPartyQuick: 'btnAiParty',
+  btnAiProofreadQuick: 'btnAiProofread',
   btnAiFullPolishQuick: 'btnAiFullPolish',
   btnAiPaperLayoutQuick: 'btnAiPaperLayout',
   btnAiOfficialLayoutQuick: 'btnAiOfficialLayout',
@@ -41,7 +42,8 @@ const AI_QUICK_ACTION_MAP = {
   btnAiSelectionShorten: 'btnAiShorten',
   btnAiSelectionPolish: 'btnAiPolish',
   btnAiSelectionFormal: 'btnAiFormal',
-  btnAiSelectionParty: 'btnAiParty'
+  btnAiSelectionParty: 'btnAiParty',
+  btnAiSelectionProofread: 'btnAiProofread'
 }
 
 const AI_SELECTION_ACTION_IDS = new Set([
@@ -51,7 +53,8 @@ const AI_SELECTION_ACTION_IDS = new Set([
   'btnAiSelectionShorten',
   'btnAiSelectionPolish',
   'btnAiSelectionFormal',
-  'btnAiSelectionParty'
+  'btnAiSelectionParty',
+  'btnAiSelectionProofread'
 ])
 
 const TASKPANE_STORAGE_KEYS = [
@@ -166,6 +169,9 @@ function OnAction(control) {
     case 'btnAiFormal':
       openAiDialogTaskPane('formal')
       break
+    case 'btnAiProofread':
+      openAiDialogTaskPane('proofread')
+      break
     case 'btnAiFullPolish':
       openAiDialogTaskPane('full-polish')
       break
@@ -262,7 +268,7 @@ function openAiTaskPane(mode) {
  */
 function openAiDialog(mode) {
   // 根据不同功能设置合适的窗口大小
-  const largeDialogs = ['summary', 'full-polish', 'layout', 'paper-layout', 'official-layout', 'ppt', 'image', 'summary-image']
+  const largeDialogs = ['summary', 'full-polish', 'proofread', 'layout', 'paper-layout', 'official-layout', 'ppt', 'image', 'summary-image']
   const width = largeDialogs.includes(mode) ? 680 : 600
   const height = largeDialogs.includes(mode) ? 560 : 500
   const url = Util.GetUrlPath() + Util.GetRouterHash() + '/ai-dialog?mode=' + mode
@@ -314,7 +320,7 @@ function openAiDialogTaskPane(mode) {
 }
 
 function setAiTaskPaneWidth(tskpane, mode) {
-  const largeModes = ['full-polish']
+  const largeModes = ['full-polish', 'proofread']
   const width = largeModes.includes(mode) ? 500 : 420
   try {
     tskpane.MinWidth = 360
@@ -393,6 +399,7 @@ function getDialogTitle(mode) {
     party: '党政风转换',
     polish: '润色',
     formal: '更正式',
+    proofread: 'AI 纠错',
     'full-polish': '全文润色',
     summary: '全文总结',
     layout: 'AI 排版',
@@ -428,6 +435,7 @@ function GetImage(control) {
     case 'btnAiParty':
     case 'btnAiPolish':
     case 'btnAiFormal':
+    case 'btnAiProofread':
     case 'btnAiFullPolish':
       return 'images/ai-edit.svg'
     case 'btnAiCompanion':

@@ -44,13 +44,73 @@
       </div>
     </section>
 
-    <section v-if="resultText || imageUrl || generating" class="result-card">
+    <section v-if="resultText || imageUrl || generating || hasProofreadResult" class="result-card">
       <div class="result-head">
         <span>{{ modeInfo.resultLabel }}</span>
-        <button v-if="resultText" class="ghost-button" @click="copyText(resultText)">复制</button>
+        <button v-if="resultText && modeInfo.kind !== 'proofread'" class="ghost-button" @click="copyText(resultText)">复制</button>
       </div>
 
-      <div v-if="imageUrl" class="image-result">
+      <div v-if="modeInfo.kind === 'proofread'" class="proofread-result">
+        <div v-if="generating" class="proofread-loading">正在审校文档...</div>
+        <template v-else>
+          <div class="proofread-summary">
+            <strong>审校摘要</strong>
+            <p>{{ proofreadResult.summary || '未发现明显问题。' }}</p>
+          </div>
+
+          <div v-if="proofreadResult.revisedText" class="proofread-revision">
+            <div class="proofread-revision-head">
+              <strong>修订稿</strong>
+              <button class="ghost-button" @click="copyText(proofreadResult.revisedText)">复制</button>
+            </div>
+            <pre>{{ proofreadResult.revisedText }}</pre>
+          </div>
+
+          <div v-if="proofreadGroups.length" class="proofread-groups">
+            <article v-for="group in proofreadGroups" :key="group.id" class="proofread-group">
+              <button class="proofread-group-head" @click="toggleProofreadGroup(group.id)">
+                <span>{{ group.title }}</span>
+                <span>{{ group.collapsed ? '展开' : '收起' }}</span>
+              </button>
+
+              <div v-if="!group.collapsed" class="proofread-issues">
+                <section
+                  v-for="issue in group.issues"
+                  :key="issue.id"
+                  class="proofread-issue"
+                  :class="{ active: activeProofreadIssueId === issue.id, ignored: proofreadIgnored[issue.id] }"
+                  @click="selectProofreadIssue(issue)"
+                >
+                  <div class="issue-head">
+                    <span class="issue-type">{{ issue.type }}</span>
+                    <span class="issue-severity">{{ issue.severity }}</span>
+                  </div>
+                  <p class="issue-original">{{ issue.original }}</p>
+                  <p class="issue-suggestion">{{ issue.suggestion }}</p>
+                  <p v-if="issue.reason" class="issue-reason">{{ issue.reason }}</p>
+                  <div class="issue-actions">
+                    <button class="ghost-button" @click.stop="selectProofreadIssue(issue)">定位</button>
+                    <button
+                      class="primary-button small-button"
+                      :disabled="!canApplyProofreadIssue(issue)"
+                      @click.stop="applyProofreadIssue(issue)"
+                    >
+                      {{ proofreadApplied[issue.id] ? '已应用' : '应用' }}
+                    </button>
+                    <button class="secondary-button small-button" @click.stop="ignoreProofreadIssue(issue)">
+                      {{ proofreadIgnored[issue.id] ? '已忽略' : '忽略' }}
+                    </button>
+                  </div>
+                  <p v-if="issue.matchCount > 1" class="issue-warning">原文片段重复，需人工确认后手动处理。</p>
+                  <p v-else-if="proofreadSourceScope !== 'selection'" class="issue-warning">全文审校仅支持定位和报告，不直接替换全文内容。</p>
+                </section>
+              </div>
+            </article>
+          </div>
+        </template>
+      </div>
+
+      <div v-else-if="imageUrl" class="image-result">
         <img :src="imageUrl" alt="AI 生成图片" />
         <p v-if="revisedPrompt" class="image-caption">{{ revisedPrompt }}</p>
       </div>
@@ -165,6 +225,31 @@ const MODE_CONFIG = {
     applyMode: 'replace',
     buildPrompt: (src, extra) =>
       `请润色以下文本，使表达更流畅、准确。\n\n原文：\n${src}\n\n补充要求：${extra || '不改变原意，直接输出润色后的文本。'}`
+  },
+  proofread: {
+    title: 'AI 纠错',
+    category: '审校',
+    kind: 'proofread',
+    source: 'proofread',
+    promptLabel: '审校要求',
+    placeholder: '例如：重点检查错别字、语病、标点、事实一致性',
+    actionLabel: '开始审校',
+    resultLabel: '审校报告',
+    applyLabel: '应用修改',
+    buildPrompt: (src, extra) => `请审校以下中文文档，找出错别字、语法语病、标点、用词不当、逻辑不一致和格式表达问题。
+
+要求：
+1. 只输出 JSON，不要输出 Markdown 代码块或额外解释。
+2. JSON 顶层字段为 summary、groups、revisedText。
+3. groups 是数组，每组包含 title 和 issues。
+4. 每个 issue 包含 type、severity、original、suggestion、reason。
+5. original 必须逐字摘取原文中的连续片段，不能改写；suggestion 是建议替换文本。
+6. 无问题时返回空 groups，并在 summary 说明。
+
+补充要求：${extra || '全面审校，优先指出确定性较高的问题。'}
+
+原文：
+${src}`
   },
   formal: {
     title: '更正式',
@@ -307,7 +392,18 @@ export default {
       errorMsg: '',
       tipMsg: '',
       stopFn: null,
-      paneKey: ''
+      paneKey: '',
+      sourceRangeInfo: null,
+      proofreadSourceScope: 'document',
+      proofreadResult: {
+        summary: '',
+        groups: [],
+        revisedText: ''
+      },
+      activeProofreadIssueId: '',
+      proofreadApplied: {},
+      proofreadIgnored: {},
+      proofreadAppliedDeltas: []
     }
   },
   computed: {
@@ -315,6 +411,9 @@ export default {
       return MODE_CONFIG[this.mode] || MODE_CONFIG.rewrite
     },
     sourceTitle() {
+      if (this.modeInfo.source === 'proofread') {
+        return this.proofreadSourceScope === 'selection' ? '当前选区' : '当前文档'
+      }
       return this.modeInfo.source === 'selection' ? '当前选区' : '当前文档'
     },
     sourcePreview() {
@@ -322,6 +421,9 @@ export default {
       return text.length > 180 ? text.slice(0, 180) + '...' : text
     },
     sourceEmptyText() {
+      if (this.modeInfo.source === 'proofread') {
+        return '未读取到选区或文档内容，请确认已在 WPS 中打开文档。'
+      }
       return this.modeInfo.source === 'selection'
         ? '未读取到选区内容，请先在文档中选中文本。'
         : '未读取到文档内容，请确认已在 WPS 中打开文档。'
@@ -333,27 +435,80 @@ export default {
       return false
     },
     canApplyResult() {
+      if (this.modeInfo.kind === 'proofread') return false
       if (this.modeInfo.kind === 'image') return !!this.imageUrl
       return !!this.resultText || this.modeInfo.kind === 'layout'
+    },
+    hasProofreadResult() {
+      return (
+        this.modeInfo.kind === 'proofread' &&
+        (!!this.proofreadResult.summary || this.proofreadGroups.length > 0 || !!this.proofreadResult.revisedText)
+      )
+    },
+    proofreadGroups() {
+      return this.proofreadResult.groups || []
     }
   },
-  created() {
-    const hash = window.location.hash || ''
-    const queryStr = hash.includes('?') ? hash.split('?')[1] : window.location.search.slice(1)
-    const params = new URLSearchParams(queryStr)
-    const m = params.get('mode')
-    if (m && MODE_CONFIG[m]) this.mode = m
-    this.paneKey = params.get('paneKey') || ''
-    this.loadSource()
+  watch: {
+    '$route.query': {
+      immediate: true,
+      handler(query) {
+        this.applyRouteQuery(query)
+      }
+    }
   },
   methods: {
+    applyRouteQuery(query = {}) {
+      const nextMode = MODE_CONFIG[query.mode] ? query.mode : 'rewrite'
+      const modeChanged = nextMode !== this.mode
+
+      this.mode = nextMode
+      this.paneKey = query.paneKey || ''
+
+      if (modeChanged) {
+        this.resetWorkState()
+      }
+
+      this.loadSource()
+    },
+    resetWorkState() {
+      if (this.stopFn) this.stopFn()
+      this.extraPrompt = ''
+      this.resultText = ''
+      this.imageUrl = ''
+      this.revisedPrompt = ''
+      this.generating = false
+      this.applying = false
+      this.layoutApplying = false
+      this.errorMsg = ''
+      this.tipMsg = ''
+      this.stopFn = null
+      this.sourceRangeInfo = null
+      this.proofreadSourceScope = 'document'
+      this.resetProofreadState()
+    },
     loadSource() {
       if (this.modeInfo.source === 'selection') {
         this.sourceText = wpsDoc.getSelection()
+        this.sourceRangeInfo = wpsDoc.getSelectionRangeInfo()
       } else if (this.modeInfo.source === 'document') {
         this.sourceText = wpsDoc.getFullText()
+        this.sourceRangeInfo = wpsDoc.getDocumentRangeInfo()
+      } else if (this.modeInfo.source === 'proofread') {
+        const selectionInfo = wpsDoc.getSelectionRangeInfo()
+        if (selectionInfo.text) {
+          this.sourceRangeInfo = selectionInfo
+          this.sourceText = selectionInfo.text
+          this.proofreadSourceScope = 'selection'
+          return
+        }
+        const docInfo = wpsDoc.getDocumentRangeInfo()
+        this.sourceRangeInfo = docInfo
+        this.sourceText = docInfo.text
+        this.proofreadSourceScope = 'document'
       } else {
         this.sourceText = ''
+        this.sourceRangeInfo = null
       }
     },
     ensureConfig() {
@@ -370,9 +525,15 @@ export default {
       this.resultText = ''
       this.imageUrl = ''
       this.revisedPrompt = ''
+      this.resetProofreadState()
 
       if (this.modeInfo.kind === 'image') {
         await this.generateImage()
+        return
+      }
+
+      if (this.modeInfo.kind === 'proofread') {
+        await this.generateProofread()
         return
       }
 
@@ -403,6 +564,32 @@ export default {
           this.stopFn = null
         }
       )
+    },
+    async generateProofread() {
+      this.loadSource()
+      if (!this.sourceText) {
+        this.errorMsg = this.sourceEmptyText
+        return
+      }
+
+      this.generating = true
+      const prompt = this.modeInfo.buildPrompt(this.sourceText, this.extraPrompt.trim())
+      const messages = [
+        { role: 'system', content: '你是专业中文审校助手，只输出可解析 JSON。' },
+        { role: 'user', content: prompt }
+      ]
+
+      try {
+        const raw = await aiApi.chat(messages, { temperature: 0.2, maxTokens: 4096 })
+        const parsed = this.parseProofreadJson(raw)
+        this.proofreadResult = this.decorateProofreadResult(parsed)
+        this.resultText = this.buildProofreadHistoryText()
+        this.saveHistory(messages)
+      } catch (err) {
+        this.errorMsg = err.message || '审校失败'
+      } finally {
+        this.generating = false
+      }
     },
     async generateImage() {
       this.generating = true
@@ -480,6 +667,173 @@ export default {
           return wpsDoc.insertAtEnd(`\n\n【${this.modeInfo.title}】\n${text}`)
       }
     },
+    resetProofreadState() {
+      this.proofreadResult = {
+        summary: '',
+        groups: [],
+        revisedText: ''
+      }
+      this.activeProofreadIssueId = ''
+      this.proofreadApplied = {}
+      this.proofreadIgnored = {}
+      this.proofreadAppliedDeltas = []
+    },
+    parseProofreadJson(raw) {
+      const text = String(raw || '').trim()
+      if (!text) throw new Error('模型未返回审校结果。')
+
+      const jsonText = this.extractJsonText(text)
+      try {
+        return JSON.parse(jsonText)
+      } catch {
+        throw new Error('模型返回内容不是可解析的 JSON，请重试或在审校要求中强调“只输出 JSON”。')
+      }
+    },
+    extractJsonText(text) {
+      const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+      if (fenced?.[1]) return fenced[1].trim()
+
+      const start = text.indexOf('{')
+      const end = text.lastIndexOf('}')
+      if (start >= 0 && end > start) return text.slice(start, end + 1)
+      return text
+    },
+    decorateProofreadResult(raw) {
+      const groups = Array.isArray(raw?.groups) ? raw.groups : []
+      const flatIssues = Array.isArray(raw?.issues) ? [{ title: '审校问题', issues: raw.issues }] : []
+      const sourceGroups = groups.length ? groups : flatIssues
+
+      return {
+        summary: String(raw?.summary || ''),
+        revisedText: String(raw?.revisedText || raw?.revised_text || ''),
+        groups: sourceGroups
+          .map((group, groupIndex) => this.decorateProofreadGroup(group, groupIndex))
+          .filter((group) => group.issues.length > 0)
+      }
+    },
+    decorateProofreadGroup(group, groupIndex) {
+      const issues = Array.isArray(group?.issues) ? group.issues : []
+      return {
+        id: `group-${groupIndex}`,
+        title: group?.title || group?.type || `问题分组 ${groupIndex + 1}`,
+        collapsed: false,
+        issues: issues
+          .map((issue, issueIndex) => this.decorateProofreadIssue(issue, groupIndex, issueIndex, group))
+          .filter((issue) => issue.original)
+      }
+    },
+    decorateProofreadIssue(issue, groupIndex, issueIndex, group) {
+      const original = String(issue?.original || issue?.source || issue?.text || '')
+      const suggestion = String(issue?.suggestion ?? issue?.replacement ?? issue?.corrected ?? '')
+      const indexes = this.findAllIndexes(this.sourceText, original)
+      const startOffset = indexes.length ? indexes[0] : null
+      const occurrenceIndex = indexes.length ? 0 : -1
+
+      return {
+        id: `issue-${groupIndex}-${issueIndex}`,
+        groupId: `group-${groupIndex}`,
+        type: issue?.type || group?.title || '问题',
+        severity: issue?.severity || '建议',
+        original,
+        suggestion,
+        reason: String(issue?.reason || issue?.explanation || ''),
+        startOffset,
+        endOffset: Number.isFinite(startOffset) ? startOffset + original.length : null,
+        occurrenceIndex,
+        matchCount: indexes.length
+      }
+    },
+    findAllIndexes(source, target) {
+      const indexes = []
+      if (!source || !target) return indexes
+      let from = 0
+      for (;;) {
+        const index = source.indexOf(target, from)
+        if (index < 0) break
+        indexes.push(index)
+        from = index + Math.max(target.length, 1)
+      }
+      return indexes
+    },
+    toggleProofreadGroup(groupId) {
+      this.proofreadResult.groups = this.proofreadGroups.map((group) =>
+        group.id === groupId ? { ...group, collapsed: !group.collapsed } : group
+      )
+    },
+    selectProofreadIssue(issue) {
+      this.activeProofreadIssueId = issue.id
+      this.errorMsg = ''
+
+      const baseStart = this.sourceRangeInfo?.start
+      const baseEnd = this.sourceRangeInfo?.end
+      if (Number.isFinite(baseStart) && Number.isFinite(issue.startOffset) && Number.isFinite(issue.endOffset)) {
+        const ok = wpsDoc.selectRange(baseStart + issue.startOffset, baseStart + issue.endOffset)
+        if (ok) return
+      }
+
+      const found = wpsDoc.findAndSelect(issue.original, baseStart, baseEnd, issue.occurrenceIndex)
+      if (!found.ok) {
+        this.errorMsg = '无法在文档中定位该问题，可能是原文已被修改。'
+      }
+    },
+    canApplyProofreadIssue(issue) {
+      return (
+        this.proofreadSourceScope === 'selection' &&
+        !this.proofreadApplied[issue.id] &&
+        !this.proofreadIgnored[issue.id] &&
+        issue.matchCount === 1 &&
+        Number.isFinite(issue.startOffset) &&
+        Number.isFinite(issue.endOffset)
+      )
+    },
+    applyProofreadIssue(issue) {
+      if (!this.canApplyProofreadIssue(issue)) return
+      const baseStart = this.sourceRangeInfo?.start
+      if (!Number.isFinite(baseStart)) {
+        this.errorMsg = '缺少选区位置信息，无法应用修改。'
+        return
+      }
+
+      const delta = this.getProofreadDeltaBefore(issue.startOffset)
+      const start = baseStart + issue.startOffset + delta
+      const end = baseStart + issue.endOffset + delta
+      const ok = wpsDoc.replaceRange(start, end, issue.suggestion)
+      if (!ok) {
+        this.errorMsg = '应用修改失败，请确认当前仍在 WPS 文档中。'
+        return
+      }
+
+      this.proofreadApplied = { ...this.proofreadApplied, [issue.id]: true }
+      this.proofreadAppliedDeltas.push({
+        offset: issue.endOffset,
+        delta: issue.suggestion.length - issue.original.length
+      })
+      this.tipMsg = '已应用该条修改。'
+    },
+    getProofreadDeltaBefore(offset) {
+      return this.proofreadAppliedDeltas
+        .filter((item) => item.offset <= offset)
+        .reduce((sum, item) => sum + item.delta, 0)
+    },
+    ignoreProofreadIssue(issue) {
+      this.proofreadIgnored = { ...this.proofreadIgnored, [issue.id]: true }
+      this.tipMsg = '已忽略该条问题。'
+    },
+    buildProofreadHistoryText() {
+      const lines = [`摘要：${this.proofreadResult.summary || '无'}`]
+      this.proofreadGroups.forEach((group) => {
+        lines.push(`\n【${group.title}】`)
+        group.issues.forEach((issue, index) => {
+          lines.push(
+            `${index + 1}. ${issue.original} -> ${issue.suggestion || '无替换建议'}${issue.reason ? `；原因：${issue.reason}` : ''}`
+          )
+        })
+      })
+      if (this.proofreadResult.revisedText) {
+        lines.push(`\n【修订稿】\n${this.proofreadResult.revisedText}`)
+      }
+      return lines.join('\n')
+    },
     async applyLayout() {
       this.layoutApplying = true
       this.errorMsg = ''
@@ -495,11 +849,27 @@ export default {
       aiHistory.saveSession({
         id: aiHistory.genId(),
         title: this.modeInfo.title,
-        type: this.modeInfo.kind === 'image' ? 'image' : this.modeInfo.kind === 'layout' ? 'layout' : 'edit',
+        type:
+          this.modeInfo.kind === 'image'
+            ? 'image'
+            : this.modeInfo.kind === 'layout'
+              ? 'layout'
+              : this.modeInfo.kind === 'proofread'
+                ? 'proofread'
+                : 'edit',
         messages: [
           ...messages,
           { role: 'assistant', content: this.imageUrl || this.resultText }
         ],
+        proofread:
+          this.modeInfo.kind === 'proofread'
+            ? {
+                summary: this.proofreadResult.summary,
+                groups: this.proofreadGroups,
+                revisedText: this.proofreadResult.revisedText,
+                sourceScope: this.proofreadSourceScope
+              }
+            : undefined,
         createdAt: Date.now()
       })
     },
@@ -543,16 +913,14 @@ export default {
 .ai-dialog {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 16px;
+  padding: 8px;
   overflow: auto;
   color: #1f2937;
-  background:
-    linear-gradient(180deg, rgba(246, 248, 255, 0.96), rgba(255, 255, 255, 0.98) 34%),
-    #fff;
+  background: #f8fafc;
   font-size: 13px;
 }
 
@@ -560,10 +928,9 @@ export default {
 .source-card,
 .work-card,
 .result-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .dialog-head {
@@ -571,36 +938,36 @@ export default {
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  padding: 14px 16px;
+  padding: 8px 10px;
 }
 
 .eyebrow {
-  margin: 0 0 3px;
+  margin: 0 0 1px;
   color: #6366f1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 h1 {
   margin: 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .status-pill {
-  padding: 4px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   color: #475569;
   background: #eef2ff;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .source-card,
 .work-card {
   flex-shrink: 0;
-  padding: 12px;
+  padding: 8px;
 }
 
 .source-title,
@@ -621,11 +988,11 @@ h1 {
 
 .source-preview,
 .source-empty {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #64748b;
-  max-height: 112px;
+  max-height: 160px;
   overflow: auto;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .source-empty {
@@ -634,24 +1001,24 @@ h1 {
 
 .field-label {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   color: #374151;
   font-weight: 600;
 }
 
 .prompt-box {
   width: 100%;
-  min-height: 76px;
+  min-height: 64px;
   max-height: 180px;
-  padding: 10px 11px;
+  padding: 8px;
   resize: vertical;
   border: 1px solid #d1d5db;
-  border-radius: 7px;
+  border-radius: 5px;
   outline: none;
   color: #111827;
   background: #fff;
   overflow: auto;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .prompt-box:focus {
@@ -660,13 +1027,13 @@ h1 {
 }
 
 .action-row {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 button {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
   border: 1px solid transparent;
   cursor: pointer;
   font-size: 13px;
@@ -695,8 +1062,8 @@ button:disabled {
 }
 
 .ghost-button {
-  height: 26px;
-  padding: 0 9px;
+  height: 24px;
+  padding: 0 8px;
   font-size: 12px;
 }
 
@@ -713,8 +1080,8 @@ button:disabled {
 
 .result-card {
   flex: 1;
-  min-height: 120px;
-  max-height: min(360px, 48vh);
+  min-height: 180px;
+  max-height: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -722,7 +1089,7 @@ button:disabled {
 
 .result-head {
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 7px 8px;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -730,19 +1097,19 @@ button:disabled {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: 12px;
+  padding: 8px;
   overflow: auto;
   color: #1f2937;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .image-result {
   flex: 1;
   min-height: 0;
-  padding: 12px;
+  padding: 8px;
   overflow: auto;
 }
 
@@ -761,13 +1128,157 @@ button:disabled {
   line-height: 1.6;
 }
 
+.proofread-result {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+}
+
+.proofread-loading,
+.proofread-summary,
+.proofread-revision,
+.proofread-group,
+.proofread-issue {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.proofread-loading,
+.proofread-summary,
+.proofread-revision {
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.proofread-summary p {
+  margin: 4px 0 0;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.proofread-revision-head,
+.issue-head,
+.issue-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proofread-revision-head,
+.issue-head {
+  justify-content: space-between;
+}
+
+.proofread-revision pre {
+  max-height: 160px;
+  margin: 6px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #334155;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.proofread-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proofread-group {
+  overflow: hidden;
+}
+
+.proofread-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 30px;
+  border-radius: 0;
+  color: #111827;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.proofread-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+}
+
+.proofread-issue {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.proofread-issue.active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.proofread-issue.ignored {
+  opacity: 0.72;
+}
+
+.issue-type,
+.issue-severity {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.issue-severity {
+  color: #7c3aed;
+}
+
+.issue-original,
+.issue-suggestion,
+.issue-reason,
+.issue-warning {
+  margin: 5px 0 0;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.issue-original {
+  color: #991b1b;
+}
+
+.issue-suggestion {
+  color: #166534;
+}
+
+.issue-reason {
+  color: #64748b;
+}
+
+.issue-warning {
+  color: #b45309;
+  font-size: 12px;
+}
+
+.issue-actions {
+  margin-top: 7px;
+}
+
+.small-button {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
 .error-msg,
 .tip-msg {
   flex-shrink: 0;
   margin: 0;
-  padding: 9px 11px;
-  border-radius: 7px;
-  line-height: 1.45;
+  padding: 7px 8px;
+  border-radius: 5px;
+  line-height: 1.4;
 }
 
 .error-msg {
@@ -786,10 +1297,10 @@ button:disabled {
   justify-content: flex-end;
   flex-shrink: 0;
   position: sticky;
-  bottom: -16px;
+  bottom: -8px;
   z-index: 1;
-  margin: 0 -16px -16px;
-  padding: 10px 16px 16px;
+  margin: 0 -8px -8px;
+  padding: 7px 8px 8px;
   background: rgba(255, 255, 255, 0.94);
   border-top: 1px solid #e5e7eb;
   backdrop-filter: blur(8px);

@@ -25,6 +25,31 @@ function getSelection() {
 }
 
 /**
+ * 获取当前选区文本和 Range 位置信息
+ * @returns {{text: string, start: number|null, end: number|null, docName: string, isSelection: boolean}}
+ */
+function getSelectionRangeInfo() {
+  if (!isWpsAvailable()) {
+    return { text: '', start: null, end: null, docName: '', isSelection: false }
+  }
+
+  try {
+    const sel = window.Application.Selection
+    const range = sel?.Range
+    const text = sel?.Text || ''
+    return {
+      text,
+      start: typeof range?.Start === 'number' ? range.Start : null,
+      end: typeof range?.End === 'number' ? range.End : null,
+      docName: getDocName(),
+      isSelection: !!text && text.length > 0
+    }
+  } catch {
+    return { text: '', start: null, end: null, docName: '', isSelection: false }
+  }
+}
+
+/**
  * 获取当前文档全文文本
  * @returns {string} 全文文本，无文档或非 WPS 环境返回空字符串
  */
@@ -38,6 +63,30 @@ function getFullText() {
     return content ? content.Text || '' : ''
   } catch {
     return ''
+  }
+}
+
+/**
+ * 获取当前文档全文和 Range 位置信息
+ * @returns {{text: string, start: number|null, end: number|null, docName: string, isSelection: boolean}}
+ */
+function getDocumentRangeInfo() {
+  if (!isWpsAvailable()) {
+    return { text: '', start: null, end: null, docName: '', isSelection: false }
+  }
+
+  try {
+    const doc = window.Application.ActiveDocument
+    const content = doc?.Content
+    return {
+      text: content?.Text || '',
+      start: typeof content?.Start === 'number' ? content.Start : null,
+      end: typeof content?.End === 'number' ? content.End : null,
+      docName: doc?.Name || '',
+      isSelection: false
+    }
+  } catch {
+    return { text: '', start: null, end: null, docName: '', isSelection: false }
   }
 }
 
@@ -74,6 +123,94 @@ function replaceSelection(text) {
   } catch {
     return false
   }
+}
+
+/**
+ * 选中文档指定 Range
+ * @param {number} start
+ * @param {number} end
+ * @returns {boolean}
+ */
+function selectRange(start, end) {
+  if (!isWpsAvailable()) return false
+  try {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return false
+    const doc = window.Application.ActiveDocument
+    const range = doc?.Range(start, end)
+    if (!range?.Select) return false
+    range.Select()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 在基准 Range 内按出现序号查找文本并选中。
+ * occurrenceIndex 从 0 开始；返回 Range 位置，便于调用方做兜底替换。
+ * @param {string} text
+ * @param {number|null} baseStart
+ * @param {number|null} baseEnd
+ * @param {number} occurrenceIndex
+ * @returns {{ok: boolean, start: number|null, end: number|null, count: number}}
+ */
+function findAndSelect(text, baseStart = null, baseEnd = null, occurrenceIndex = 0) {
+  if (!isWpsAvailable() || !text) return { ok: false, start: null, end: null, count: 0 }
+  try {
+    const doc = window.Application.ActiveDocument
+    if (!doc) return { ok: false, start: null, end: null, count: 0 }
+
+    const baseRange =
+      Number.isFinite(baseStart) && Number.isFinite(baseEnd) ? doc.Range(baseStart, baseEnd) : doc.Content
+    const baseText = baseRange?.Text || ''
+    const indexes = findAllIndexes(baseText, text)
+    const index = indexes[occurrenceIndex]
+    if (!Number.isFinite(index)) {
+      return { ok: false, start: null, end: null, count: indexes.length }
+    }
+
+    const start = (Number.isFinite(baseStart) ? baseStart : baseRange.Start || 0) + index
+    const end = start + text.length
+    return { ok: selectRange(start, end), start, end, count: indexes.length }
+  } catch {
+    return { ok: false, start: null, end: null, count: 0 }
+  }
+}
+
+/**
+ * 替换文档指定 Range 内容
+ * @param {number} start
+ * @param {number} end
+ * @param {string} text
+ * @returns {boolean}
+ */
+function replaceRange(start, end, text) {
+  if (!isWpsAvailable()) return false
+  try {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return false
+    const doc = window.Application.ActiveDocument
+    const range = doc?.Range(start, end)
+    if (!range) return false
+    range.Text = text
+    const newEnd = start + String(text || '').length
+    selectRange(start, newEnd)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function findAllIndexes(source, target) {
+  const indexes = []
+  if (!source || !target) return indexes
+  let from = 0
+  for (;;) {
+    const index = source.indexOf(target, from)
+    if (index < 0) break
+    indexes.push(index)
+    from = index + Math.max(target.length, 1)
+  }
+  return indexes
 }
 
 /**
@@ -236,9 +373,14 @@ function hasSelection() {
 export default {
   isWpsAvailable,
   getSelection,
+  getSelectionRangeInfo,
   getFullText,
+  getDocumentRangeInfo,
   getDocName,
   replaceSelection,
+  selectRange,
+  findAndSelect,
+  replaceRange,
   insertAfterSelection,
   insertAtEnd,
   replaceAllText,

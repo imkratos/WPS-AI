@@ -104,26 +104,23 @@ export default {
 .history-pane {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 16px;
+  padding: 8px;
   overflow: hidden;
   color: #1f2937;
-  background:
-    linear-gradient(180deg, #f7f8ff 0%, #fff 34%),
-    #fff;
+  background: #f8fafc;
   font-size: 13px;
 }
 
 .history-head,
 .empty-card,
 .history-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .history-head {
@@ -131,28 +128,28 @@ export default {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  padding: 14px 16px;
+  padding: 8px 10px;
 }
 
 .eyebrow {
-  margin: 0 0 3px;
+  margin: 0 0 1px;
   color: #6366f1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 h1 {
   margin: 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 750;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 button {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
   cursor: pointer;
   font-weight: 700;
 }
@@ -175,7 +172,7 @@ button:disabled {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 24px;
+  padding: 14px;
   text-align: center;
 }
 
@@ -187,7 +184,7 @@ button:disabled {
 
 .empty-card span {
   color: #64748b;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .history-list {
@@ -196,7 +193,7 @@ button:disabled {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .history-item {
@@ -211,8 +208,8 @@ button:disabled {
   height: auto;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -227,10 +224,10 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 5px;
   color: #4f46e5;
   background: #eef2ff;
 }
@@ -255,13 +252,13 @@ button:disabled {
 }
 
 .item-info small {
-  margin-top: 2px;
+  margin-top: 1px;
   color: #64748b;
   font-size: 11px;
 }
 
 .item-info em {
-  margin-top: 5px;
+  margin-top: 3px;
   color: #64748b;
   font-size: 12px;
   font-style: normal;
@@ -269,7 +266,7 @@ button:disabled {
 }
 
 .delete-button {
-  width: 58px;
+  width: 48px;
   height: auto;
   flex-shrink: 0;
   border: 0;

@@ -191,15 +191,23 @@ export default {
       }
     }
   },
+  watch: {
+    '$route.query.mode': {
+      immediate: true,
+      handler(mode) {
+        this.applyRouteMode(mode)
+      }
+    }
+  },
   created() {
-    const hash = window.location.hash || ''
-    const queryStr = hash.includes('?') ? hash.split('?')[1] : window.location.search.slice(1)
-    const params = new URLSearchParams(queryStr)
-    const mode = params.get('mode')
-    if (['write', 'companion', 'qa'].includes(mode)) this.activeTab = mode
     this.useKb = !!aiConfig.getConfig().kbUrl
   },
   methods: {
+    applyRouteMode(mode) {
+      if (['write', 'companion', 'qa'].includes(mode)) {
+        this.activeTab = mode
+      }
+    },
     switchTab(key) {
       this.activeTab = key
     },
@@ -455,9 +463,7 @@ export default {
   height: 100%;
   min-height: 0;
   color: #1f2937;
-  background:
-    linear-gradient(180deg, #f7f8ff 0%, #ffffff 32%),
-    #fff;
+  background: #f8fafc;
   font-size: 13px;
 }
 
@@ -466,55 +472,56 @@ export default {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  padding: 16px 16px 12px;
+  padding: 8px 10px 6px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .eyebrow {
-  margin: 0 0 3px;
+  margin: 0 0 1px;
   color: #6366f1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 h1 {
   margin: 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 750;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .icon-button {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 1px solid #dbe1ea;
-  border-radius: 8px;
+  border-radius: 5px;
   color: #4f46e5;
   background: #fff;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 
 .tab-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
-  margin: 0 12px 10px;
-  padding: 4px;
-  border: 1px solid #e5e7eb;
-  border-radius: 9px;
-  background: #f8fafc;
+  margin: 6px 8px 8px;
+  padding: 3px;
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #eef2f7;
 }
 
 .tab-button {
-  height: 30px;
+  height: 26px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 4px;
   color: #64748b;
   background: transparent;
   cursor: pointer;
@@ -530,7 +537,7 @@ h1 {
 .workspace {
   flex: 1;
   min-height: 0;
-  padding: 0 12px 12px;
+  padding: 0 8px 8px;
   overflow: auto;
 }
 
@@ -538,27 +545,26 @@ h1 {
 .chat-workspace {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .prompt-card,
 .result-card,
 .chat-input-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.055);
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .prompt-card,
 .chat-input-card {
   flex-shrink: 0;
-  padding: 12px;
+  padding: 8px;
 }
 
 .field-label {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   color: #374151;
   font-weight: 700;
 }
@@ -568,12 +574,12 @@ h1 {
   width: 100%;
   resize: vertical;
   border: 1px solid #d1d5db;
-  border-radius: 7px;
+  border-radius: 5px;
   outline: none;
-  padding: 10px;
+  padding: 8px;
   color: #111827;
   background: #fff;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .prompt-input:focus,
@@ -586,16 +592,16 @@ select:focus {
 .option-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 9px;
+  gap: 6px;
+  margin-top: 7px;
 }
 
 select {
   min-width: 0;
-  height: 32px;
-  padding: 0 9px;
+  height: 28px;
+  padding: 0 8px;
   border: 1px solid #d1d5db;
-  border-radius: 7px;
+  border-radius: 5px;
   outline: none;
   color: #374151;
   background: #fff;
@@ -606,17 +612,17 @@ select {
 .context-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .action-row {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 button {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 700;
@@ -640,8 +646,8 @@ button:disabled {
 }
 
 .ghost-button {
-  height: 28px;
-  padding: 0 10px;
+  height: 24px;
+  padding: 0 8px;
   font-size: 12px;
 }
 
@@ -654,7 +660,7 @@ button:disabled {
 .result-card {
   display: flex;
   flex-direction: column;
-  min-height: 180px;
+  min-height: 220px;
   overflow: hidden;
 }
 
@@ -663,7 +669,7 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 7px 8px;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 700;
 }
@@ -671,18 +677,18 @@ button:disabled {
 .result-text {
   flex: 1;
   margin: 0;
-  padding: 12px;
+  padding: 8px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .card-actions {
   flex-shrink: 0;
   justify-content: flex-end;
-  padding: 10px 12px;
+  padding: 7px 8px;
   border-top: 1px solid #e5e7eb;
 }
 
@@ -704,17 +710,17 @@ button:disabled {
   min-height: 0;
   overscroll-behavior: contain;
   overflow: auto;
-  padding: 8px 2px;
+  padding: 4px 0;
 }
 
 .empty-state {
-  margin: 32px 8px;
-  padding: 18px;
+  margin: 12px 4px;
+  padding: 10px;
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
   color: #64748b;
   background: #f8fafc;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .empty-state p {
@@ -722,13 +728,12 @@ button:disabled {
 }
 
 .message {
-  max-width: 88%;
-  margin: 0 0 10px;
-  padding: 10px 11px;
-  border-radius: 8px;
+  max-width: 94%;
+  margin: 0 0 6px;
+  padding: 8px;
+  border-radius: 6px;
   border: 1px solid #e5e7eb;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
 }
 
 .message.user {
@@ -747,16 +752,16 @@ button:disabled {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .error-msg,
 .tip-msg {
   flex-shrink: 0;
-  margin: 0 12px 12px;
-  padding: 9px 11px;
-  border-radius: 7px;
-  line-height: 1.45;
+  margin: 0 8px 8px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  line-height: 1.4;
 }
 
 .error-msg {

@@ -232,25 +232,22 @@ export default {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 16px;
+  padding: 8px;
   overflow: auto;
   color: #1f2937;
-  background:
-    linear-gradient(180deg, #f7f8ff 0%, #fff 34%),
-    #fff;
+  background: #f8fafc;
   font-size: 13px;
 }
 
 .settings-head,
 .settings-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .settings-head {
@@ -258,13 +255,13 @@ export default {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  padding: 14px 16px;
+  padding: 8px 10px;
 }
 
 .eyebrow {
-  margin: 0 0 3px;
+  margin: 0 0 1px;
   color: #6366f1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -276,22 +273,22 @@ h2 {
 }
 
 h1 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 750;
 }
 
 h2 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .status-pill,
 .soft-tag {
-  padding: 4px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   color: #475569;
   background: #eef2ff;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .soft-tag {
@@ -300,43 +297,43 @@ h2 {
 
 .settings-card {
   flex-shrink: 0;
-  padding: 14px;
+  padding: 8px;
 }
 
 .section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .field {
   display: block;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .field span {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: #374151;
   font-weight: 700;
 }
 
 .field small {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: #64748b;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 input,
 select {
   width: 100%;
-  height: 34px;
+  height: 30px;
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 1px solid #d1d5db;
-  border-radius: 7px;
+  border-radius: 5px;
   outline: none;
   color: #111827;
   background: #fff;
@@ -351,7 +348,7 @@ select:focus {
 .key-row,
 .model-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -366,10 +363,10 @@ select:focus {
 }
 
 button {
-  height: 30px;
-  padding: 0 12px;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 5px;
   cursor: pointer;
   font-weight: 700;
 }
@@ -394,10 +391,10 @@ button:disabled {
 .test-result,
 .error-msg,
 .tip-msg {
-  margin: 12px 0 0;
-  padding: 9px 11px;
-  border-radius: 7px;
-  line-height: 1.45;
+  margin: 8px 0 0;
+  padding: 7px 8px;
+  border-radius: 5px;
+  line-height: 1.4;
 }
 
 .test-result {
@@ -422,7 +419,7 @@ button:disabled {
 .settings-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
