@@ -1,16 +1,84 @@
-<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="ribbon.OnAddinLoad">
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="ribbon.OnAddinLoad">
     <ribbon startFromScratch="false">
         <tabs>
-            <tab id="wpsAddinTab" label="wps加载项示例">
-				<group id="btnDemoGroup" label="group1">
-                    <button id="btnShowMsg" label="弹出消息框" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled"  getImage="ribbon.GetImage" visible="true" size="large"/>
-                    <button id="btnIsEnbable" getLabel="ribbon.OnGetLabel" onAction="ribbon.OnAction" enabled="true"  getImage="ribbon.GetImage" visible="true" size="large"/>
-                    <button id="btnShowDialog" label="弹对话框网页" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
-                    <button id="btnShowTaskPane" label="弹任务窗格网页" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
-                    <button id="btnApiEvent" getLabel="ribbon.OnGetLabel" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
-                    <button id="btnWebNotify" label="给业务系统发通知" onAction="ribbon.OnAction" enabled="true"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
-				</group>
+            <!-- 原有演示 Tab -->
+				<!--         <tab id="wpsAddinTab" label="智小林"> -->
+				<!-- <group id="btnDemoGroup" label="group1"> -->
+				<!--                 <button id="btnShowMsg" label="弹出消息框" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage" visible="true" size="large"/> -->
+				<!--                 <button id="btnIsEnbable" getLabel="ribbon.OnGetLabel" onAction="ribbon.OnAction" enabled="true" getImage="ribbon.GetImage" visible="true" size="large"/> -->
+				<!--                 <button id="btnShowDialog" label="弹对话框网页" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/> -->
+				<!--                 <button id="btnShowTaskPane" label="弹任务窗格网页" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/> -->
+				<!--                 <button id="btnApiEvent" getLabel="ribbon.OnGetLabel" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/> -->
+				<!--                 <button id="btnWebNotify" label="给业务系统发通知" onAction="ribbon.OnAction" enabled="true" getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/> -->
+				<!-- </group> -->
+				<!--         </tab> -->
+
+            <!-- 文策 AI Tab -->
+            <tab id="wpsAiTab" label="文策 AI">
+
+                <group id="aiWriteGroup" label=" ">
+                    <button id="btnAiWrite" label="帮我写" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                    <menu id="menuAiEdit" label="帮我改" getImage="ribbon.GetImage" size="large">
+                        <button id="btnAiContinue"  label="续写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiExpand"    label="扩写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiRewrite"   label="重写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiShorten"   label="缩写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <menuSeparator id="sep1"/>
+                        <button id="btnAiParty"     label="党政风" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiPolish"    label="润色"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiFormal"    label="更正式" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <menuSeparator id="sep2"/>
+                        <button id="btnAiFullPolish" label="全文润色" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    </menu>
+                    <button id="btnAiContinueQuick"  label="续写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiExpandQuick"    label="扩写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiRewriteQuick"   label="重写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiShortenQuick"   label="缩写"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiPolishQuick"    label="润色"   onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiFormalQuick"    label="更正式" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiPartyQuick"     label="党政风" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiFullPolishQuick" label="全文润色" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiCompanion" label="伴写" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                </group>
+
+                <group id="aiDocGroup" label=" ">
+                    <button id="btnAiQA"      label="文档问答" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                    <button id="btnAiSummary" label="全文总结" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                </group>
+
+                <group id="aiLayoutGroup" label=" ">
+                    <menu id="menuAiLayout" label="AI 排版" getImage="ribbon.GetImage" size="large">
+                        <button id="btnAiAiLayout"      label="AI 排版" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiPaperLayout"    label="论文排版" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                        <button id="btnAiOfficialLayout" label="公文排版" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    </menu>
+                    <button id="btnAiPaperLayoutQuick"    label="论文排版" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiOfficialLayoutQuick" label="公文排版" onAction="ribbon.OnAction" getImage="ribbon.GetImage"/>
+                    <button id="btnAiPPT"          label="文档生成 PPT" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                    <button id="btnAiImage"        label="AI 生成图片"  onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                    <button id="btnAiSummaryImage" label="AI 总结生图"  onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                </group>
+
+                <group id="aiMiscGroup" label=" ">
+                    <button id="btnAiHistory"  label="历史会话" onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                    <button id="btnAiSettings" label="设置"     onAction="ribbon.OnAction" getImage="ribbon.GetImage" size="large"/>
+                </group>
+
             </tab>
         </tabs>
     </ribbon>
+    <contextMenus>
+        <contextMenu idMso="ContextMenuText">
+            <menu id="menuAiSelectionText" label="文策 AI" getImage="ribbon.GetImage">
+                <button id="btnAiSelectionPolish" label="润色" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionRewrite" label="重写" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionExpand" label="扩写" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionShorten" label="缩写" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionContinue" label="续写" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <menuSeparator id="sepAiSelectionStyle"/>
+                <button id="btnAiSelectionFormal" label="更正式" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+                <button id="btnAiSelectionParty" label="党政风" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage"/>
+            </menu>
+        </contextMenu>
+    </contextMenus>
 </customUI>
