@@ -1,5 +1,7 @@
 # 文策 AI WPS 加载项
 
+本项目还在快速迭代，有可能会有break changes
+
 这是一个基于 Vue 3 + Vite 构建的 WPS 文字加载项项目，核心目标是在 WPS 文档编辑场景中接入大模型能力，为用户提供写作、改写、文档问答、全文总结、排版建议、图片生成和历史会话管理等 AI 辅助能力。
 
 项目通过 `public/ribbon.xml` 注册 WPS Ribbon 入口，并在 `src/components/ribbon.js` 中统一处理按钮回调、任务窗格、对话框和右键菜单逻辑。
