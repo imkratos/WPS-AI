@@ -257,6 +257,198 @@ function insertAtEnd(text) {
 }
 
 /**
+ * 在文档末尾插入 Markdown，并把标题转换为 WPS 中可见的标题样式。
+ * 当前重点处理 AI 常见输出：# 标题、## 小标题、列表、引用和普通段落。
+ * @param {string} markdown
+ * @returns {boolean}
+ */
+function insertMarkdownAtEnd(markdown) {
+  if (!isWpsAvailable()) return false
+  const blocks = parseMarkdownBlocks(markdown)
+  if (!blocks.length) return false
+
+  try {
+    const doc = window.Application.ActiveDocument
+    if (!doc) return false
+
+    const range = doc.Range()
+    range.Collapse(0)
+    const insertStart = typeof range.Start === 'number' ? range.Start : null
+    const text = `\n\n${blocks.map((block) => block.text).join('\n')}`
+    range.Text = text
+
+    if (Number.isFinite(insertStart)) {
+      applyMarkdownBlockFormats(doc, blocks, insertStart + 2)
+    }
+
+    const rg = window.Application.Selection.Range
+    if (rg) rg.Select()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parseMarkdownBlocks(markdown) {
+  const source = String(markdown || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+  if (!source) return []
+
+  const blocks = []
+  let inCodeBlock = false
+
+  source.split('\n').forEach((rawLine) => {
+    const line = rawLine.trim()
+    if (/^```/.test(line)) {
+      inCodeBlock = !inCodeBlock
+      return
+    }
+
+    if (!line) {
+      blocks.push({ type: 'blank', text: '' })
+      return
+    }
+
+    if (!inCodeBlock && /^-{3,}$|^\*{3,}$|^_{3,}$/.test(line)) {
+      blocks.push({ type: 'blank', text: '' })
+      return
+    }
+
+    if (!inCodeBlock) {
+      const heading = line.match(/^(#{1,6})\s+(.+)$/)
+      if (heading) {
+        blocks.push({
+          type: 'heading',
+          level: heading[1].length,
+          text: stripInlineMarkdown(heading[2])
+        })
+        return
+      }
+
+      const unordered = line.match(/^[-*+]\s+(.+)$/)
+      if (unordered) {
+        blocks.push({ type: 'list', text: `• ${stripInlineMarkdown(unordered[1])}` })
+        return
+      }
+
+      const ordered = line.match(/^(\d+)[.)]\s+(.+)$/)
+      if (ordered) {
+        blocks.push({ type: 'list', text: `${ordered[1]}. ${stripInlineMarkdown(ordered[2])}` })
+        return
+      }
+
+      const quote = line.match(/^>\s*(.+)$/)
+      if (quote) {
+        blocks.push({ type: 'quote', text: stripInlineMarkdown(quote[1]) })
+        return
+      }
+    }
+
+    blocks.push({ type: inCodeBlock ? 'code' : 'paragraph', text: stripInlineMarkdown(line) })
+  })
+
+  return trimBlankBlocks(blocks)
+}
+
+function stripInlineMarkdown(text) {
+  return String(text || '')
+    .replace(/!\[([^\]]*)]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .trim()
+}
+
+function trimBlankBlocks(blocks) {
+  const result = [...blocks]
+  while (result[0]?.type === 'blank') result.shift()
+  while (result[result.length - 1]?.type === 'blank') result.pop()
+  return result
+}
+
+function applyMarkdownBlockFormats(doc, blocks, start) {
+  let cursor = start
+  blocks.forEach((block, index) => {
+    const end = cursor + block.text.length
+    if (block.text) {
+      try {
+        const range = doc.Range(cursor, end)
+        applyBlockFormat(range, block)
+      } catch {
+        // 不同 WPS 版本的样式 API 有差异；单段失败不影响正文插入。
+      }
+    }
+    cursor = end + (index < blocks.length - 1 ? 1 : 0)
+  })
+}
+
+function applyBlockFormat(range, block) {
+  if (block.type === 'heading') {
+    applyHeadingFormat(range, block.level)
+    return
+  }
+
+  if (range.Font) {
+    range.Font.Name = '宋体'
+    range.Font.Size = block.type === 'code' ? 10.5 : 12
+    range.Font.Bold = false
+  }
+
+  if (range.ParagraphFormat) {
+    range.ParagraphFormat.FirstLineIndent = block.type === 'paragraph' ? 21 : 0
+    range.ParagraphFormat.SpaceBefore = 0
+    range.ParagraphFormat.SpaceAfter = block.type === 'blank' ? 0 : 6
+    range.ParagraphFormat.LineSpacing = 20
+  }
+}
+
+function applyHeadingFormat(range, level = 1) {
+  const normalizedLevel = Math.min(Math.max(Number(level) || 1, 1), 6)
+  tryApplyHeadingStyle(range, normalizedLevel)
+
+  if (range.Font) {
+    range.Font.Name = '宋体'
+    range.Font.Bold = true
+    range.Font.Size = getHeadingFontSize(normalizedLevel)
+  }
+
+  if (range.ParagraphFormat) {
+    range.ParagraphFormat.FirstLineIndent = 0
+    range.ParagraphFormat.SpaceBefore = normalizedLevel <= 2 ? 12 : 8
+    range.ParagraphFormat.SpaceAfter = normalizedLevel <= 2 ? 8 : 6
+    range.ParagraphFormat.LineSpacing = 24
+  }
+}
+
+function tryApplyHeadingStyle(range, level) {
+  const styleNames = [`标题 ${level}`, `Heading ${level}`, `标题${level}`]
+  for (const styleName of styleNames) {
+    try {
+      range.Style = styleName
+      return
+    } catch {
+      // 继续尝试其他语言或格式的内置样式名称。
+    }
+  }
+}
+
+function getHeadingFontSize(level) {
+  const sizeMap = {
+    1: 18,
+    2: 16,
+    3: 14,
+    4: 13,
+    5: 12,
+    6: 12
+  }
+  return sizeMap[level] || 12
+}
+
+/**
  * 替换整篇文档文本
  * @param {string} text
  * @returns {boolean}
@@ -383,6 +575,7 @@ export default {
   replaceRange,
   insertAfterSelection,
   insertAtEnd,
+  insertMarkdownAtEnd,
   replaceAllText,
   insertImage,
   applyLayoutPreset,

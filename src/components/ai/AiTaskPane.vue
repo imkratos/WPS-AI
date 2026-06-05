@@ -53,7 +53,7 @@
         </div>
         <pre class="result-text">{{ writeResult }}<span v-if="writeGenerating" class="cursor">|</span></pre>
         <div class="card-actions">
-          <button class="primary-button" @click="insertWriteResult">插入文末</button>
+          <button class="primary-button" @click="insertWriteResult">按标题插入文末</button>
           <button class="secondary-button" :disabled="writeGenerating" @click="onWrite">重新生成</button>
         </div>
       </article>
@@ -276,7 +276,11 @@ export default {
       if (this.writeLength) userMsg += `\n内容长度：${lengthMap[this.writeLength]}`
 
       const messages = [
-        { role: 'system', content: '你是一位专业中文写作助手。请直接输出可放入文档的正文内容。' },
+        {
+          role: 'system',
+          content:
+            '你是一位专业中文写作助手。请直接输出可放入文档的 Markdown 正文内容：一级标题用 #，二级标题用 ##，三级标题用 ###，正文不要放在代码块中。'
+        },
         { role: 'user', content: userMsg }
       ]
       if (!this.writeSessionId) this.writeSessionId = aiHistory.genId()
@@ -310,7 +314,7 @@ export default {
       this.writeGenerating = false
     },
     insertWriteResult() {
-      if (!wpsDoc.insertAtEnd(`\n\n${this.writeResult}`)) {
+      if (!wpsDoc.insertMarkdownAtEnd(this.writeResult)) {
         this.writeError = '插入文档失败，请确认在 WPS 中打开了此加载项。'
       }
     },
