@@ -151,31 +151,47 @@ function streamChat(messages, onChunk, onDone, onError, options = {}) {
  * @returns {Promise<string>} 知识库返回的上下文文本
  */
 async function queryKnowledgeBase(question, kbUrlOverride) {
+  const segments = await queryKnowledgeBaseSegments(question, { kbUrlOverride })
+  return segments.map((item) => item.content).filter(Boolean).join('\n\n')
+}
+
+/**
+ * 向知识库发起 RAG 查询，返回结构化片段
+ * @param {string} question 用户问题
+ * @param {object} [options]
+ * @param {string} [options.kbUrlOverride] 覆盖配置中的知识库地址
+ * @param {string} [options.kbDatasetId] 覆盖当前选择的 Dify 知识库 ID
+ * @param {number} [options.topK] 覆盖检索片段数量
+ * @returns {Promise<Array<{content: string, score: number|null, source: string, metadata: object}>>}
+ */
+async function queryKnowledgeBaseSegments(question, options = {}) {
   const cfg = aiConfig.getConfig()
-  const kbUrl = kbUrlOverride || cfg.kbUrl
-  if (!kbUrl) return ''
+  const kbUrl = options.kbUrlOverride || cfg.kbUrl
+  if (!question || !kbUrl || !isKnowledgeBaseConfigured(cfg)) return []
 
   if (cfg.kbProvider === 'dify') {
+    const kbDatasetId = options.kbDatasetId || cfg.kbDatasetId
+    if (!kbDatasetId) return []
     return queryDifyKnowledgeBase(question, {
       kbUrl,
       kbApiKey: cfg.kbApiKey,
-      kbDatasetId: cfg.kbDatasetId,
-      kbTopK: cfg.kbTopK
+      kbDatasetId,
+      kbTopK: options.topK || cfg.kbTopK
     })
   }
 
-  return queryCustomKnowledgeBase(question, kbUrl, cfg.kbTopK)
+  return queryCustomKnowledgeBase(question, kbUrl, options.topK || cfg.kbTopK)
 }
 
 /**
  * 调用 Dify 知识库检索接口
  * @param {string} question 用户问题
  * @param {object} config Dify 知识库配置
- * @returns {Promise<string>}
+ * @returns {Promise<Array<{content: string, score: number|null, source: string, metadata: object}>>}
  */
 async function queryDifyKnowledgeBase(question, config) {
   const { kbUrl, kbApiKey, kbDatasetId } = config
-  if (!kbUrl || !kbApiKey || !kbDatasetId) return ''
+  if (!kbUrl || !kbApiKey || !kbDatasetId) return []
 
   const topK = normalizeTopK(config.kbTopK)
 
@@ -194,18 +210,35 @@ async function queryDifyKnowledgeBase(question, config) {
         }
       })
     })
-    if (!resp.ok) return ''
+    if (!resp.ok) return []
     const data = await resp.json()
-    if (!Array.isArray(data.records)) return ''
+    if (!Array.isArray(data.records)) return []
     return data.records
       .map((record) => {
         const segment = record.segment || {}
-        return segment.content || record.content || ''
+        const document = segment.document || record.document || {}
+        const dataset = record.dataset || {}
+        const source =
+          document.name ||
+          segment.document_name ||
+          dataset.name ||
+          segment.keyword ||
+          record.title ||
+          'Dify 知识库'
+        return normalizeKnowledgeSegment({
+          content: segment.content || record.content || '',
+          score: record.score ?? segment.score ?? null,
+          source,
+          metadata: {
+            segmentId: segment.id || record.segment_id || '',
+            documentId: document.id || segment.document_id || '',
+            datasetId: dataset.id || kbDatasetId
+          }
+        })
       })
       .filter(Boolean)
-      .join('\n\n')
   } catch {
-    return ''
+    return []
   }
 }
 
@@ -214,7 +247,7 @@ async function queryDifyKnowledgeBase(question, config) {
  * @param {string} question 用户问题
  * @param {string} kbUrl 知识库服务地址
  * @param {number} kbTopK 检索片段数量
- * @returns {Promise<string>}
+ * @returns {Promise<Array<{content: string, score: number|null, source: string, metadata: object}>>}
  */
 async function queryCustomKnowledgeBase(question, kbUrl, kbTopK) {
   try {
@@ -224,17 +257,145 @@ async function queryCustomKnowledgeBase(question, kbUrl, kbTopK) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, top_k: normalizeTopK(kbTopK) })
     })
-    if (!resp.ok) return ''
+    if (!resp.ok) return []
     const data = await resp.json()
     // 兼容常见 RAG 接口返回格式
     if (Array.isArray(data.results)) {
-      return data.results.map((r) => r.content || r.text || '').join('\n\n')
+      return data.results
+        .map((item) =>
+          normalizeKnowledgeSegment({
+            content: item.content || item.text || item.chunk || '',
+            score: item.score ?? item.similarity ?? item.relevance ?? null,
+            source: item.source || item.title || item.document || item.doc_name || '知识库',
+            metadata: item.metadata || {}
+          })
+        )
+        .filter(Boolean)
     }
-    if (typeof data.context === 'string') return data.context
-    return ''
+    if (Array.isArray(data.data)) {
+      return data.data
+        .map((item) =>
+          normalizeKnowledgeSegment({
+            content: item.content || item.text || item.chunk || '',
+            score: item.score ?? item.similarity ?? item.relevance ?? null,
+            source: item.source || item.title || item.document || item.doc_name || '知识库',
+            metadata: item.metadata || {}
+          })
+        )
+        .filter(Boolean)
+    }
+    if (typeof data.context === 'string') {
+      return splitContextToSegments(data.context)
+    }
+    return []
   } catch {
-    return ''
+    return []
   }
+}
+
+/**
+ * 获取 Dify 可见知识库列表
+ * @param {object} [options]
+ * @param {string} [options.kbUrl] Dify API 地址
+ * @param {string} [options.kbApiKey] Dify API Key
+ * @param {string} [options.keyword] 按名称筛选
+ * @returns {Promise<Array<{id: string, name: string, description: string, documentCount: number, provider: string}>>}
+ */
+async function listDifyDatasets(options = {}) {
+  const cfg = aiConfig.getConfig()
+  const kbUrl = String(options.kbUrl || cfg.kbUrl || '').trim()
+  const kbApiKey = String(options.kbApiKey || cfg.kbApiKey || '').trim()
+  const keyword = String(options.keyword || '').trim()
+  if (!kbUrl || !kbApiKey) return []
+
+  const all = []
+  let page = 1
+  const limit = 20
+
+  for (;;) {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit)
+    })
+    if (keyword) params.set('keyword', keyword)
+
+    const endpoint = `${kbUrl.replace(/\/$/, '')}/datasets?${params.toString()}`
+    const resp = await fetchDifyJson(endpoint, kbApiKey, '获取 Dify 知识库列表')
+
+    const data = resp.data
+    if (Array.isArray(data.data)) {
+      all.push(
+        ...data.data
+          .map((item) => ({
+            id: item.id || '',
+            name: item.name || '未命名知识库',
+            description: item.description || '',
+            documentCount: item.total_available_documents ?? item.document_count ?? item.total_documents ?? 0,
+            provider: item.provider || ''
+          }))
+          .filter((item) => item.id)
+      )
+    }
+
+    if (!data.has_more) break
+    page += 1
+  }
+
+  return all
+}
+
+async function fetchDifyJson(endpoint, apiKey, actionName) {
+  let resp
+  try {
+    resp = await fetch(endpoint, {
+      method: 'GET',
+      headers: buildHeaders(apiKey)
+    })
+  } catch (err) {
+    throw new Error(`${actionName}失败：无法访问 Dify API，请检查地址是否可访问，以及 Dify 服务是否允许当前加载项跨域请求。`)
+  }
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '')
+    throw new Error(`${actionName}失败 (${resp.status})：${errText || resp.statusText}`)
+  }
+
+  return {
+    status: resp.status,
+    data: await resp.json()
+  }
+}
+
+/**
+ * 判断知识库配置是否完整
+ * @param {object} [cfg]
+ * @returns {boolean}
+ */
+function isKnowledgeBaseConfigured(cfg = aiConfig.getConfig()) {
+  if (cfg.kbProvider === 'dify') {
+    return !!(cfg.kbUrl && cfg.kbApiKey)
+  }
+  return !!cfg.kbUrl
+}
+
+function normalizeKnowledgeSegment(item) {
+  const content = String(item.content || '').trim()
+  if (!content) return null
+
+  const score = Number(item.score)
+  return {
+    content,
+    score: Number.isFinite(score) ? score : null,
+    source: item.source || '知识库',
+    metadata: item.metadata || {}
+  }
+}
+
+function splitContextToSegments(context) {
+  return String(context || '')
+    .split(/\n{2,}/)
+    .map((content) => normalizeKnowledgeSegment({ content, score: null, source: '知识库', metadata: {} }))
+    .filter(Boolean)
 }
 
 /**
@@ -316,6 +477,9 @@ export default {
   chat,
   streamChat,
   queryKnowledgeBase,
+  queryKnowledgeBaseSegments,
+  listDifyDatasets,
+  isKnowledgeBaseConfigured,
   generateImage,
   testConnection
 }

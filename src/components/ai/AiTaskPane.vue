@@ -59,6 +59,54 @@
       </article>
     </section>
 
+    <section v-else-if="activeTab === 'knowledge'" class="workspace knowledge-workspace">
+      <section class="knowledge-panel">
+        <div class="card-head compact-head">
+          <span>知识库参考</span>
+          <button
+            class="ghost-button"
+            :disabled="companionKbLoading || !companionKbConfigured"
+            @click="refreshCurrentParagraphKnowledge()"
+          >
+            {{ companionKbLoading ? '检索中...' : '刷新' }}
+          </button>
+        </div>
+        <div class="knowledge-body">
+          <div v-if="companionKbProvider === 'dify' && companionKbConfigured" class="dataset-row">
+            <select
+              v-model="companionDatasetId"
+              :disabled="companionDatasetLoading"
+              @change="onCompanionDatasetChange"
+            >
+              <option value="">选择知识库</option>
+              <option v-for="item in companionDatasets" :key="item.id" :value="item.id">
+                {{ item.name }}
+              </option>
+            </select>
+            <button class="ghost-button" :disabled="companionDatasetLoading" @click="loadCompanionDatasets()">
+              {{ companionDatasetLoading ? '加载中...' : '列表' }}
+            </button>
+          </div>
+          <p v-if="!companionKbConfigured" class="muted-text">配置知识库后，会按光标所在段落检索匹配度最高的 5 段内容。</p>
+          <p v-else-if="companionDatasetError" class="warning-text">{{ companionDatasetError }}</p>
+          <p v-else-if="companionDatasetLoading" class="muted-text">正在加载知识库列表...</p>
+          <p v-else-if="companionKbProvider === 'dify' && !companionDatasetId" class="muted-text">请选择一个知识库后再检索。</p>
+          <p v-else-if="companionKbError" class="warning-text">{{ companionKbError }}</p>
+          <p v-else-if="companionKbLoading" class="muted-text">正在用当前段落检索知识库...</p>
+          <p v-else-if="!companionParagraphText" class="muted-text">请把光标放在需要参考知识库的段落中，然后点击刷新。</p>
+          <template v-else>
+            <p class="paragraph-preview">当前段落：{{ companionParagraphText }}</p>
+            <ol v-if="companionKbSegments.length" class="knowledge-list">
+              <li v-for="(item, index) in companionKbSegments" :key="index">
+                <p>{{ item.content }}</p>
+              </li>
+            </ol>
+            <p v-else class="muted-text">未检索到匹配片段。</p>
+          </template>
+        </div>
+      </section>
+    </section>
+
     <section v-else class="workspace chat-workspace">
       <div class="context-row">
         <label v-if="activeTab === 'companion'" class="check-label">
@@ -123,7 +171,8 @@ const PRODUCT_NAME = '文策 AI'
 const AI_TASK_PANE_TITLES = {
   write: '帮我写',
   companion: '伴写',
-  qa: '文档问答'
+  qa: '文档问答',
+  knowledge: '知识库参考'
 }
 
 export default {
@@ -134,7 +183,8 @@ export default {
       tabs: [
         { key: 'write', label: AI_TASK_PANE_TITLES.write },
         { key: 'companion', label: AI_TASK_PANE_TITLES.companion },
-        { key: 'qa', label: AI_TASK_PANE_TITLES.qa }
+        { key: 'qa', label: AI_TASK_PANE_TITLES.qa },
+        { key: 'knowledge', label: AI_TASK_PANE_TITLES.knowledge }
       ],
       writePrompt: '',
       writeStyle: '',
@@ -152,6 +202,18 @@ export default {
       companionStopFn: null,
       companionSessionId: null,
       injectDocContext: true,
+      companionKbProvider: 'dify',
+      companionKbConfigured: false,
+      companionKbLoading: false,
+      companionKbError: '',
+      companionKbSegments: [],
+      companionParagraphText: '',
+      companionParagraphKey: '',
+      companionDatasets: [],
+      companionDatasetId: '',
+      companionDatasetLoading: false,
+      companionDatasetError: '',
+      companionDatasetLoaded: false,
       qaMessages: [],
       qaInput: '',
       qaStreamText: '',
@@ -175,6 +237,7 @@ export default {
     },
     activeError() {
       if (this.activeTab === 'write') return this.writeError
+      if (this.activeTab === 'knowledge') return ''
       return this.activeTab === 'qa' ? this.qaError : this.companionError
     },
     activeInputProxy: {
@@ -193,10 +256,24 @@ export default {
       handler(mode) {
         this.applyRouteMode(mode)
       }
+    },
+    activeTab(tab) {
+      if (tab === 'knowledge') {
+        this.$nextTick(() => this.refreshCurrentParagraphKnowledge({ silent: true }))
+      }
     }
   },
   created() {
-    this.useKb = !!aiConfig.getConfig().kbUrl
+    const cfg = aiConfig.getConfig()
+    this.useKb = !!cfg.kbUrl
+    this.companionKbProvider = cfg.kbProvider
+    this.companionDatasetId = cfg.kbDatasetId || ''
+    this.companionKbConfigured = aiApi.isKnowledgeBaseConfigured(cfg)
+  },
+  mounted() {
+    if (this.activeTab === 'knowledge') {
+      this.refreshCurrentParagraphKnowledge({ silent: true })
+    }
   },
   methods: {
     applyRouteMode(mode) {
@@ -337,6 +414,11 @@ export default {
         const docText = wpsDoc.getFullText()
         if (docText) systemContent += `\n\n当前文档内容，仅作上下文参考：\n${docText.slice(0, 4000)}`
       }
+      await this.ensureCompanionKnowledgeFresh()
+      const kbContext = this.companionKbSegments.map((item, index) => `${index + 1}. ${item.content}`).join('\n\n')
+      if (kbContext) {
+        systemContent += `\n\n知识库参考，来自当前光标所在段落的 RAG 检索结果：\n${kbContext.slice(0, 2500)}`
+      }
 
       const messages = [
         { role: 'system', content: systemContent },
@@ -381,6 +463,106 @@ export default {
       this.companionStreamText = ''
       this.companionStopFn = null
       this.companionGenerating = false
+    },
+    async ensureCompanionKnowledgeFresh() {
+      if (!this.companionKbConfigured || this.companionKbLoading) return
+      const paragraphInfo = wpsDoc.getCurrentParagraphInfo()
+      const paragraphKey = `${paragraphInfo.start ?? ''}:${paragraphInfo.end ?? ''}:${paragraphInfo.text}`
+      if (!paragraphInfo.text || paragraphKey === this.companionParagraphKey) return
+      await this.refreshCurrentParagraphKnowledge({ silent: true, paragraphInfo })
+    },
+    async refreshCurrentParagraphKnowledge(options = {}) {
+      const cfg = aiConfig.getConfig()
+      this.companionKbProvider = cfg.kbProvider
+      this.companionKbConfigured = aiApi.isKnowledgeBaseConfigured(cfg)
+      this.companionDatasetId = this.companionDatasetId || cfg.kbDatasetId || ''
+      if (!this.companionKbConfigured) {
+        this.companionKbSegments = []
+        this.companionParagraphText = ''
+        this.companionParagraphKey = ''
+        this.companionKbError = ''
+        this.companionDatasetError = ''
+        return
+      }
+      if (cfg.kbProvider === 'dify' && !this.companionDatasetLoaded && !this.companionDatasetLoading) {
+        await this.loadCompanionDatasets({ silent: options.silent })
+      }
+      if (cfg.kbProvider === 'dify' && !this.companionDatasetId) {
+        this.companionKbSegments = []
+        this.companionParagraphText = ''
+        this.companionParagraphKey = ''
+        if (!options.silent && !this.companionDatasetError) {
+          this.companionKbError = '请先选择一个 Dify 知识库。'
+        }
+        return
+      }
+
+      const paragraphInfo = options.paragraphInfo || wpsDoc.getCurrentParagraphInfo()
+      const paragraphText = paragraphInfo.text || ''
+      this.companionParagraphText = this.shortenText(paragraphText, 120)
+      this.companionParagraphKey = `${paragraphInfo.start ?? ''}:${paragraphInfo.end ?? ''}:${paragraphText}`
+      this.companionKbError = ''
+
+      if (!paragraphText) {
+        this.companionKbSegments = []
+        if (!options.silent) this.companionKbError = '未读取到当前段落，请确认光标在正文段落内。'
+        return
+      }
+
+      this.companionKbLoading = true
+      try {
+        const segments = await aiApi.queryKnowledgeBaseSegments(paragraphText, {
+          topK: 5,
+          kbDatasetId: this.companionDatasetId
+        })
+        this.companionKbSegments = segments.slice(0, 5)
+      } catch (err) {
+        this.companionKbSegments = []
+        this.companionKbError = err.message || '知识库检索失败'
+      } finally {
+        this.companionKbLoading = false
+      }
+    },
+    async loadCompanionDatasets(options = {}) {
+      const cfg = aiConfig.getConfig()
+      this.companionKbProvider = cfg.kbProvider
+      this.companionDatasetError = ''
+      if (cfg.kbProvider !== 'dify' || !aiApi.isKnowledgeBaseConfigured(cfg)) return
+
+      this.companionDatasetLoading = true
+      try {
+        const datasets = await aiApi.listDifyDatasets({
+          kbUrl: cfg.kbUrl,
+          kbApiKey: cfg.kbApiKey
+        })
+        this.companionDatasets = datasets
+        this.companionDatasetLoaded = true
+
+        const currentId = this.companionDatasetId || cfg.kbDatasetId || ''
+        const currentExists = datasets.some((item) => item.id === currentId)
+        const nextId = currentExists ? currentId : datasets[0]?.id || ''
+        if (nextId !== this.companionDatasetId) {
+          this.companionDatasetId = nextId
+          aiConfig.setConfig({ kbDatasetId: nextId })
+        }
+        if (!datasets.length && !options.silent) {
+          this.companionDatasetError = '当前 Dify API Key 未返回可用知识库。'
+        }
+      } catch (err) {
+        this.companionDatasets = []
+        this.companionDatasetLoaded = false
+        if (!options.silent) {
+          this.companionDatasetError = err.message || '获取 Dify 知识库列表失败'
+        }
+      } finally {
+        this.companionDatasetLoading = false
+      }
+    },
+    onCompanionDatasetChange() {
+      aiConfig.setConfig({ kbDatasetId: this.companionDatasetId })
+      this.companionKbSegments = []
+      this.companionParagraphKey = ''
+      this.refreshCurrentParagraphKnowledge({ silent: true })
     },
     newQaChat() {
       this.qaMessages = []
@@ -475,6 +657,11 @@ export default {
       ta.select()
       document.execCommand('copy')
       document.body.removeChild(ta)
+    },
+    shortenText(text, maxLength) {
+      const value = String(text || '').replace(/\s+/g, ' ').trim()
+      if (value.length <= maxLength) return value
+      return `${value.slice(0, maxLength)}...`
     }
   }
 }
@@ -525,7 +712,7 @@ export default {
 
 .tab-bar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 3px;
   flex-shrink: 0;
   margin: 6px 8px 8px;
@@ -537,11 +724,13 @@ export default {
 
 .tab-button {
   height: 26px;
+  min-width: 0;
   border: 0;
   border-radius: 4px;
   color: #64748b;
   background: transparent;
   cursor: pointer;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -559,7 +748,8 @@ export default {
 }
 
 .write-workspace,
-.chat-workspace {
+.chat-workspace,
+.knowledge-workspace {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -681,6 +871,21 @@ button:disabled {
   overflow: hidden;
 }
 
+.knowledge-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #dbe1ea;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.knowledge-workspace .knowledge-panel {
+  flex: 1;
+}
+
 .card-head {
   display: flex;
   justify-content: space-between;
@@ -689,6 +894,74 @@ button:disabled {
   padding: 7px 8px;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 700;
+}
+
+.compact-head {
+  padding: 6px 8px;
+}
+
+.knowledge-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.dataset-row {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.dataset-row select {
+  flex: 1;
+}
+
+.paragraph-preview,
+.muted-text,
+.warning-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.paragraph-preview {
+  margin-bottom: 7px;
+  color: #334155;
+}
+
+.muted-text {
+  color: #64748b;
+}
+
+.warning-text {
+  color: #991b1b;
+}
+
+.knowledge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.knowledge-list li {
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.knowledge-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.knowledge-list p {
+  margin: 0;
+  color: #1f2937;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .result-text {

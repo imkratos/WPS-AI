@@ -419,7 +419,8 @@ function getAiTaskPaneModeTitle(mode) {
   const titles = {
     write: '帮我写',
     companion: '伴写',
-    qa: '文档问答'
+    qa: '文档问答',
+    knowledge: '知识库参考'
   }
   return titles[mode] || 'AI 任务窗格'
 }

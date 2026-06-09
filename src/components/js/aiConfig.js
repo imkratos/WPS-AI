@@ -11,7 +11,7 @@ const DEFAULT_CONFIG = {
   kbProvider: 'dify',         // 知识库类型：dify / custom
   kbUrl: 'https://api.dify.ai/v1', // 知识库服务地址
   kbApiKey: '',               // Dify 知识库 API Key
-  kbDatasetId: '',            // Dify 知识库 ID
+  kbDatasetId: '',            // 伴写当前选择的 Dify 知识库 ID
   kbTopK: 5                   // 检索片段数量
 }
 

@@ -76,21 +76,12 @@
           :placeholder="form.kbProvider === 'dify' ? 'https://api.dify.ai/v1' : 'http://localhost:8000'"
         />
         <small v-if="form.kbProvider === 'dify'">
-          默认使用 Dify 云端地址。配置后文档问答会请求 `POST /datasets/{dataset_id}/retrieve`。
+          默认使用 Dify 云端地址。配置后伴写知识库会通过 `GET /datasets` 拉取可选知识库列表。
         </small>
         <small v-else>留空则不使用知识库。配置后文档问答会请求 `POST /query`，请求体包含 `question` 和 `top_k`。</small>
       </label>
 
       <template v-if="form.kbProvider === 'dify'">
-        <label class="field">
-          <span>Dify 知识库 ID</span>
-          <input
-            v-model.trim="form.kbDatasetId"
-            type="text"
-            placeholder="dataset_id"
-          />
-        </label>
-
         <label class="field key-field">
           <span>Dify API Key</span>
           <div class="key-row">
@@ -101,7 +92,7 @@
             />
             <button class="ghost-button" @click="showKbKey = !showKbKey">{{ showKbKey ? '隐藏' : '显示' }}</button>
           </div>
-          <small>三项任一为空时不会启用知识库检索，不影响大模型基础能力。</small>
+          <small>只需要配置 Dify API 地址和 API Key；具体知识库在伴写知识库面板中选择。</small>
         </label>
       </template>
 

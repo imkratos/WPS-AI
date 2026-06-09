@@ -50,6 +50,68 @@ function getSelectionRangeInfo() {
 }
 
 /**
+ * 获取当前光标或选区所在段落文本
+ * @returns {{text: string, start: number|null, end: number|null, docName: string}}
+ */
+function getCurrentParagraphInfo() {
+  if (!isWpsAvailable()) {
+    return { text: '', start: null, end: null, docName: '' }
+  }
+
+  try {
+    const sel = window.Application.Selection
+    const range = sel?.Range
+    const paragraphs = range?.Paragraphs
+    const paragraph = paragraphs?.Item ? paragraphs.Item(1) : paragraphs?.[0]
+    const paragraphRange = paragraph?.Range
+    const text = normalizeParagraphText(paragraphRange?.Text || '')
+    if (text) {
+      return {
+        text,
+        start: typeof paragraphRange?.Start === 'number' ? paragraphRange.Start : null,
+        end: typeof paragraphRange?.End === 'number' ? paragraphRange.End : null,
+        docName: getDocName()
+      }
+    }
+  } catch {
+    // 继续走全文定位兜底。
+  }
+
+  return getCurrentParagraphInfoFromFullText()
+}
+
+function getCurrentParagraphInfoFromFullText() {
+  try {
+    const selectionInfo = getSelectionRangeInfo()
+    const documentInfo = getDocumentRangeInfo()
+    const fullText = documentInfo.text || ''
+    if (!fullText || !Number.isFinite(selectionInfo.start)) {
+      return { text: '', start: null, end: null, docName: getDocName() }
+    }
+
+    const docStart = Number.isFinite(documentInfo.start) ? documentInfo.start : 0
+    const cursor = Math.max(selectionInfo.start - docStart, 0)
+    const paragraphStartIndex = fullText.lastIndexOf('\r', Math.max(cursor - 1, 0)) + 1
+    const nextBreakIndex = fullText.indexOf('\r', cursor)
+    const paragraphEndIndex = nextBreakIndex >= 0 ? nextBreakIndex : fullText.length
+    const text = normalizeParagraphText(fullText.slice(paragraphStartIndex, paragraphEndIndex))
+
+    return {
+      text,
+      start: docStart + paragraphStartIndex,
+      end: docStart + paragraphEndIndex,
+      docName: documentInfo.docName || getDocName()
+    }
+  } catch {
+    return { text: '', start: null, end: null, docName: getDocName() }
+  }
+}
+
+function normalizeParagraphText(text) {
+  return String(text || '').replace(/[\r\n]+$/g, '').trim()
+}
+
+/**
  * 获取当前文档全文文本
  * @returns {string} 全文文本，无文档或非 WPS 环境返回空字符串
  */
@@ -566,6 +628,7 @@ export default {
   isWpsAvailable,
   getSelection,
   getSelectionRangeInfo,
+  getCurrentParagraphInfo,
   getFullText,
   getDocumentRangeInfo,
   getDocName,

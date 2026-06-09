@@ -61,11 +61,17 @@
 | 配置项 | 说明 |
 | --- | --- |
 | Dify API 地址 | 默认 `https://api.dify.ai/v1`；私有化部署时填写自己的 Dify API 根地址。 |
-| Dify 知识库 ID | Dify 知识库的 `dataset_id`。 |
 | Dify API Key | 用于调用 Dify Knowledge Base API 的 Key。 |
 | 检索片段数 | 对应检索接口的 `top_k`，当前限制为 1-20，默认 5。 |
 
-启用后，文档问答会调用 Dify 官方知识库检索接口：
+启用后，伴写知识库面板会先调用 Dify 官方知识库列表接口，让用户选择当前使用的知识库：
+
+```text
+GET /datasets?page=1&limit=100&include_all=true
+Authorization: Bearer <Dify API Key>
+```
+
+选择知识库后，检索会调用 Dify 官方知识库检索接口：
 
 ```text
 POST /datasets/{dataset_id}/retrieve
